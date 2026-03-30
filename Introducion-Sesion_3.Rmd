@@ -1,0 +1,17 @@
+---
+title: "Presentación Dataset"
+author: "Adrian Acosta y Jairo Urdaneta"
+date: "2026-03-30"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(readr)
+library(here)
+student_digital_life <- read_csv(here("dataset", "student_digital_life.csv"))
+
+```
+
+
+
+
