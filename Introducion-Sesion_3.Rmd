@@ -14,4 +14,37 @@ student_digital_life <- read_csv(here("dataset", "student_digital_life.csv"))
 
 
 
+```{r}
+#Como el dataset no esta distribuido en factores con sus niveles, debemos usar las variables numericas obtenidas, y crear dos niveles dentro de cada una. 
+mediana_smart <- median(student_digital_life$smartphone_usage_hours, na.rm = TRUE) #Usamos la mediana como punto de referencia para crear los niveles alto y baja
+student_digital_life$nivel_smartphone <- ifelse(student_digital_life$smartphone_usage_hours > mediana_smart, "Alto", "Bajo")
+student_digital_life$nivel_smartphone <- as.factor(student_digital_life$nivel_smartphone)
+
+
+mediana_gaming <- median(student_digital_life$gaming_hours, na.rm = TRUE)
+student_digital_life$nivel_gaming <- ifelse(student_digital_life$gaming_hours > mediana_gaming, "Mucho", "Poco")
+student_digital_life$nivel_gaming <- as.factor(student_digital_life$nivel_gaming)
+
+#Aseguramos que la variable genero este registrada como un factor
+student_digital_life$gender <- as.factor(student_digital_life$gender)
+
+
+modelo_anova3 <- aov(sleep_hours ~ gender * nivel_smartphone * nivel_gaming, data = student_digital_life)
+summary(modelo_anova3)
+```
+
+
+*Planteamiento de hipotesis*
+
+H0: Ninguno de los factores genero, nivel de uso del movil y nivel de uso de videojuegos, ni sus relaciones influyen en el sueño.
+
+Ha: El sueño se ve significativamente afectado por alguno los factores genero, nivel de uso del movil y nivel de uso de videojuegos, o algunas de sus relaciones.
+
+Podemos observar en el resumen del ANOVA que todos los factores menos la relación nivel de movil con nivel de videojuegos, tienen valores mayores a 0.05. Por lo que para la mayoria de factores no se podria rechazar la hipotesis nulas. Exceptuando a la relación nivel de movil con nivel de videojuegos la cual tiene un valor menor a 0.05, ocasionando que rechacemos la hipotesis nula, y concluyendo que el nivel del uso del movil cuando se esta jugando videojuegos produce un cambio significante en las horas de sueño. 
+
+
+
+
+
+
 

@@ -1,0 +1,132 @@
+---
+title: "Sesion_4"
+author: "jairo urdaneta y  Adrian Villegas"
+date: "2026-04-02"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(readr)
+library(here)
+library(car)
+library(lmtest)
+student_digital_life <- read_csv(here("dataset", "student_digital_life.csv"))
+```
+
+# Sesión 4 de las prácticas:
+## Modelos de regresión lineal - Diagnóstico
+
+**Selecciona, de entre las variables numéricas que has detectado en tus bases de datos, aquellas que pueden ser predictoras de una de las variables, y sugiere algunos modelos de regresión lineales de una variable (y~x), ó multivariable (y~x1,x2,x3).**
+
+**- Primer modelo:**
+Selecionaremos las variables numericas study_hours_per_day, sleep_hours y motivaton_level que predecciran la variable final_exam_score en un modelo multivariable. 
+
+```{r}
+
+modelo_multivariable <- lm(final_exam_score ~ study_hours_per_day + sleep_hours + motivation_level, 
+                           data = student_digital_life)
+
+summary(modelo_multivariable)
+```
+
+**¿Cuáles son los coeficientes Beta_0,1... que se obtienen? ¿Hay alguna predicción estadísticamente relevante?**
+
+Obtenemos el B0 = 37.91076 que es valor de la variable dependiente cuando las variables independientes tomen el valor 0. Por otro lado, tenemos el B1 = 5.99010 para las horas de estudio por día, el B2 = 0.96336 para las horas de sueño, y el B3 = 1.44755 para el nivel de motivación. Según aumenten el valor de la variable independiente relacionada con su coeficiente harán que la variable dependiente aumente, asumiendo que el resto de las variables se mantienen constantes. 
+
+Las tres variables independientes seleccionadas dan una predicción estadísticamente relevante debido a que tienen valores muy por debajo del 0.05. 
+
+
+**- Segundo modelo**
+
+```{r}
+
+modelo_lineal <- lm( smartphone_usage_hours ~ social_media_hours, data = student_digital_life)
+
+summary(modelo_lineal)
+```
+**¿Cuáles son los coeficientes Beta_0,1... que se obtienen? ¿Hay alguna predicción estadísticamente relevante?**
+
+Obtenemos el B0 =  5.39312 que es valor de la variable dependiente cuando la variable independiente toma el valor 0. Por otro lado, tenemos el B1 = 0.03138 para las horas de redes sociales. Según aumente el valor de la variable independiente relacionada con su coeficiente hará que la variable dependiente aumente.
+
+La variable independiente seleccionada da una predicción estadísticamente relevante debido a que tienen valores muy por debajo del 0.05. 
+
+
+**Diagnostica cada una de las seis asunciones de la regresión lineal en uno o dos de los modelos que has obtenido.**
+**¿Cuáles de las 6 asunciones de la regresión lineal se cumplen? ¿Cuáles no? ¿Por qué?**
+
+
+Para este apartado usaremos el modelo multivariable. 
+
+- Linealidad: 
+
+```{r}
+plot(modelo_multivariable, 1)
+```
+Observamos en la grafica de residuos vs valores ajustados que la linea roja forma una curva. Por lo que la asunción de linealidad no se cumple. 
+
+- Normalidad: 
+
+```{r}
+plot(modelo_multivariable, 2)
+```
+En la grafica Normal Q-Q, observamos que la mayoria de los puntos siguen la linea recta, y solo algunos puntos del inicio y del final se desvian levemente. 
+
+
+- Homocedasticidad
+
+```{r}
+plot(modelo_multivariable, 3)
+bptest(modelo_multivariable)
+```
+Observamos que en la grafica la linea roja no es recta, y al final de esta la disperción de los puntos cambia de ser constante a formar un embudo. Además vemos en el test que el p-value es menor que 0.05 por lo que se rechaza la H0 que es que haya homocedasticidad. Concluimos por las evidencias del test y de la grafica que no se cumple la asunción de la homocedasticidad.
+
+
+- Ausencia de outliers
+
+```{r}
+plot(modelo_multivariable, 5)
+```
+Podemos observar en nuestra grafica que ningun punto sobrepasa la distancia de cook, por lo tanto se cumple la asunción. 
+
+
+- Ausencia de Multicolinealidad
+
+```{r}
+vif(modelo_multivariable)
+
+```
+
+Los valores VIF de las tres variables independientes son menores que 5. Esto nos indica que se cumple la asunciín de ausencia de multicolinealidad. 
+
+
+- Independencia de los residuos
+
+```{r}
+dwtest(modelo_multivariable)
+```
+
+El valor de DW se encuentra entre el 1.5 y el 2.5 por lo que la asunción de independencia de los residuos se cumple. 
+
+
+**Elige un modelo de los que hayas creado con más de una variable predictora. Obtén la matriz de correlaciones y los factores FIV.**
+
+Usuaremos el primer modelo debido a que es multivariable.
+
+```{r}
+variables_predictoras <- student_digital_life[c("study_hours_per_day", "sleep_hours", "motivation_level")]
+matriz_cor <- cor(variables_predictoras, use = "complete.obs")
+print(matriz_cor)
+
+factores_fiv <- vif(modelo_multivariable)
+print(factores_fiv)
+
+```
+Observamos que los valores FIV no extremadamente cercanos al 1 y que en la matriz de correlación no hay variables con una correlación mayo a 0.7. Esto nos indica que no existe relación entre las variables.
+
+
+**¿Hay multicolinealidad? ¿Puedes corregirla, obviando la(s) variable(s) con alto FIV? ¿Cómo ha cambiado el modelo?**
+
+Tal como hemos estudiado antes, observamos que hay una ausencia de multicolinealidad. 
+
+
+
