@@ -1,0 +1,24 @@
+---
+title: "Corrección de asunciones - Evaluación del modelo"
+author: "Adrian Acosta y Jairo Urdaneta"
+date: "2026-04-23"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readr)
+library(here)
+library(readr)
+student_digital_life <- read_csv("/home/acust/Escritorio/Universidad/1er_any/2do_Cua/Modelos_Regresion/Practicas/Proyecto/dataset/student_digital_life.csv")
+
+```
+
+#¿Podemos corregir las asunciones de linealidad, normalidad y homocedasticidad mediante el uso de logaritmos?
+
+#¿Teníamos outilers influyentes? ¿Cuántos?
+
+#Evaluación de nuestros modelos: R^2 ajustado, AIC, ERMS.
+
+#Error de la muestra con la población: Holdout, Validación cruzada, Bootstrap
+
