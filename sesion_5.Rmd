@@ -1,0 +1,193 @@
+---
+title: "Sesion 5"
+author: "jairo urdaneta y  Adrian Villegas"
+output: html_document
+date: "2026-04-23"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(datarium)    # Datos de marketing
+library(clickR)      # Descriptivos avanzados
+library(ggplot2)     # Gráficos generales
+library(performance) # Gráficos de diagnóstico
+library(see)         # Gráficos de diagnóstico
+library(car)         # VIF
+library(repmod)      # Tablas de resultados de modelos
+library(nlme)        #Modificar estructura de la varianza
+library(lattice)     #Gráfico normalidad
+```
+
+```{r}
+library(readr)
+student_digital_life <- read_csv("C:\\Users\\Jairo\\Documents\\universidad\\2cuatri\\Modelo de regresión\\trabajo\\DD_vs_AP-Proyecto\\dataset\\student_digital_life.csv")
+View(student_digital_life)
+```
+
+**¿Podemos corregir las asunciones de linealidad, normalidad y homocedasticidad mediante el uso de logaritmos?**
+
+En la seseión 4 definimos el modelo "final_exam_score ~ study_hours_per_day + sleep_hours + motivation_level" el cual no cumplía las asunciones de linealidad y homocedasticidad 
+
+
+-> Modelo 1:
+```{r}
+modelo_multivariable <- lm(final_exam_score ~ study_hours_per_day + sleep_hours + motivation_level, 
+                           data = student_digital_life)
+
+summary(modelo_multivariable)
+```
+
+**Asunsiones no cumplidas:**
+
+- Lineadlidad y homocedasticidad: 
+```{r}
+check_model(modelo_multivariable, check="linearity")
+```
+
+
+
+
+**Correción de asunciones:**
+
+- Linealidad y homocedasticidad:
+```{r}
+#Empezamos aplicando el logaritmo a la variable dependiente
+mod1log <- lm(log(final_exam_score) ~ study_hours_per_day + sleep_hours + motivation_level, data=student_digital_life)
+
+#Homocedasticidad y linealidad
+check_model(mod1log, check="linearity")
+```
+Aunque podemos ver una mejoría en el grafico ya que la línea se convierte menos curva y los puntos estan un poco más centrados. Sigue habiendo una notoria ausencia de la asunsión de linealidad y homocedasticidad.
+
+
+
+
+```{r}
+#Modificar estructura de la varianza con aumento potencial
+mod1_varp <- gls(final_exam_score ~ study_hours_per_day + sleep_hours + motivation_level, weights = varConstPower(form = ~ study_hours_per_day + sleep_hours + motivation_level), data=student_digital_life)
+
+#Linealidad y homocedasticidad
+plot(mod1_varp, abline=0)
+```
+
+
+```{r}
+#Modificar estructura de la varianza con aumento exponencial
+mod2_vare <- gls(final_exam_score ~ study_hours_per_day + sleep_hours + motivation_level, weights = varExp(form = ~study_hours_per_day + sleep_hours + motivation_level), data=student_digital_life)
+
+#Linealidad y homocedasticidad
+plot(mod2_vare, abline=0)
+```
+Después de modificar la estructura de la varianza con un aumento exponencial dos veces, notamos una muy leve mejoria. Pero sigue sin cumplirse la asunsión de linealidad y homocedasticidad. Por lo que concluimos que las variables predictoras no son eficientes para el modelo lineal.
+
+Por lo que cambiaremos las variables predictoras de nuestro modelo. 
+
+
+
+
+
+**¿Teníamos outilers influyentes? ¿Cuántos?**
+
+```{r}
+n <- nrow(modelo_multivariable)
+p <- length(coef(modelo_multivariable))  
+
+# Umbrales estándar
+umbral_cook     <- 4 / n                  # regla común: 4/n
+umbral_leverage <- 2 * p / n             # 2p/n
+umbral_dffits   <- 2 * sqrt(p / n)       # 2*sqrt(p/n)
+umbral_rstud    <- 2                     # |t| > 2
+
+# Identificar cuáles superan cada umbral
+outliers_cook     <- which(cook > umbral_cook)
+outliers_leverage <- which(leverage > umbral_leverage)
+outliers_dffits   <- which(abs(dffits) > umbral_dffits)
+outliers_rstud    <- which(abs(rstud) > umbral_rstud)
+
+# Unión: casos influyentes en AL MENOS una métrica
+influyentes <- unique(c(outliers_cook, outliers_leverage,
+                         outliers_dffits, outliers_rstud))
+
+cat("Número de outliers influyentes:", length(influyentes), "\n")
+```
+
+
+```{r}
+# gráficos diagnósticos estándar (incluye Cook's distance)
+par(mfrow = c(2, 2))
+plot(modelo_multivariable)   
+
+# Gráfico de Cook específico
+plot(cook, type = "h", main = "Distancia de Cook",
+     ylab = "Cook's D", xlab = "Observación")
+abline(h = umbral_cook, col = "red", lty = 2)
+text(outliers_cook, cook[outliers_cook],
+     labels = outliers_cook, pos = 3, cex = 0.8)
+```
+En nuestro modelo tenemos un total de 646 outliers de 15000 datos. Con el apoyo de distinta graficas estudiaremos si estos outliers son influyentes.
+
+La grafica de la distancia de Cook nos muestra que la mayoria de datos estan por debajo del umbral de 0.25, con excepción de unos pocos que si lo superan. Pero que no son lo suficientes dominante para romper el modelo. 
+
+Las graficas Scale-Location y Residual vs Fitted muestran una clara hererocidad, donde en la grafica Residual vs Fitted muestra como los datos se estrechan hacia la derecha, y en la grafica Scale-Location vemos como la línea roja tiene una pendiente y la los puntos no estan distribuidos homogeneamente. 
+
+En la grafica Q-Q Residual, aunque los datos cumplen la normalidad en el centro de la línea, hacia la izquierda y un poco hacia la derecha de esta, los puntos se dispersan notablemente.
+
+Finalmente, en Residuals vs Leverage hay puntos con residuos muy grandes pero leverage bajo, es decir que son outliers en Y (valores atípicos en la respuesta), no en X.
+
+
+- Conclusión de las graficas - 
+
+Después de análizar los graficos, concluimos que los 646 outliers, que representan un 4% del dataset aproximadamente, no deben ser eliminados de la base de datos. Debido a que el leverage es extremadamente bajo, descartando que sean errores en las variables predictoras. Además, el problema más relevante que hemos detectado es la heterocedasticidad, que vemos en las graficas Residuals vs Fitted y Scale-Location. Por estas razones, intentaremos ponderarlos mediante regresión robusta, como el método MM, o mínimos cuadrados ponderados. Para buscar una corrección de la falta de asunsiones presentadas. 
+
+
+```{r}
+library(MASS)
+
+#Regresión robusta MM 
+modelo_robusto <- rlm(final_exam_score ~ study_hours_per_day + sleep_hours + motivation_level, 
+                           data = student_digital_life, 
+                      method = "MM")  # MM es más robusto que M
+
+summary(modelo_robusto)
+
+#WLS 
+residuos_aux <- residuals(lm(final_exam_score ~ study_hours_per_day + sleep_hours + motivation_level, 
+                           data = student_digital_life))
+pesos <- 1 / (fitted(lm(abs(residuos_aux) ~ fitted(lm(final_exam_score ~ study_hours_per_day + sleep_hours + motivation_level, 
+                           data = student_digital_life))))^2)
+
+modelo_wls <- lm(final_exam_score ~ study_hours_per_day + sleep_hours + motivation_level, 
+                           data = student_digital_life, 
+                 weights = pesos)
+
+summary(modelo_wls)
+
+# Comparar coeficientes entre modelo original y robusto
+cbind(
+  Original  = coef(modelo_multivariable),
+  Robusto   = coef(modelo_robusto),
+  WLS       = coef(modelo_wls)
+)
+
+```
+Comparado los dos modelos procedentes de la ponderación con el original, observamos que el modelo WLS es el que mejor resultados nos da, ya que pondera los outliers por su varianza, corrige la heterocedasticidad y produce estimaciones más fiables de los coeficientes reales.
+
+```{r}
+par(mfrow = c(2, 2))
+plot(modelo_wls)   # gráficos diagnósticos estándar (incluye Cook's distance)
+
+# Gráfico de Cook específico
+plot(cook, type = "h", main = "Distancia de Cook",
+     ylab = "Cook's D", xlab = "Observación")
+abline(h = umbral_cook, col = "red", lty = 2)
+text(outliers_cook, cook[outliers_cook], labels = outliers_cook, pos = 3, cex = 0.8)
+```
+Pero al análizar el nuevo modelos con las graficas correspondientes, observamos que aunque el nuevo modelo ha mejorado notablemente, sigue presentando heterocidad y falta de normalidad.Esto nos indica que la causa del problema no son los outliers, sino que proviene de la naturaleza del dataset.
+
+Dejando como mejor opción, cambiar a un modelo de regresió GLM
+
+**Evaluación de nuestros modelos: R^2 ajustado, AIC, ERMS.**
+
+
+
+
