@@ -188,6 +188,33 @@ Dejando como mejor opción, cambiar a un modelo de regresió GLM
 
 **Evaluación de nuestros modelos: R^2 ajustado, AIC, ERMS.**
 
+Para este apartado compararemos el modelo multivariable que hemos estado trabajando con su versión univariable. 
+
+```{r}
+modelo_multivariable <- lm(final_exam_score ~ study_hours_per_day + sleep_hours + motivation_level, 
+                           data = student_digital_life)
+
+modelo_univariable_nota <- lm( final_exam_score ~ class_attendance_percent, data = student_digital_life)
+
+```
+
+**R^2 ajustado**
+```{r}
+summary(modelo_multivariable)$adj.r.squared
+summary(modelo_univariable_nota)$adj.r.squared
+```
+**AIC**
+```{r}
+AIC(modelo_multivariable)
+AIC(modelo_univariable_nota)
+```
+**RMSE**
+```{r}
+sqrt(mean(modelo_multivariable$residuals^2))
+sqrt(mean(modelo_univariable_nota$residuals^2))
+```
+El modelo multivariable resulta superior al univariable en las tres métricas vistas.Debido a que presenta un R² ajustado de 0,44 frente al 0,02 del univariable, explicando así un 44,4% de la varianza de la variable dependiente, un AIC de 121.199,7 frente a 129.695,3, reflejando mejor equilibrio entre ajuste y complejidad, y un RMSE de 13,75 frente a 18,25, lo que supone un 24% menos de error en las predicciones. No obstante, el R² ajustado moderado indica que aún existe margen de mejora, esto debido a la falta de asunciones de homocedasticidad y normalidad vistas con anterioridad. 
+
 
 
 
