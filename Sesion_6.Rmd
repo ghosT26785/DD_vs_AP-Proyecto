@@ -1,0 +1,169 @@
+---
+title: "Sesion_6"
+output: html_document
+date: "2026-05-12"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readr)
+library(car)
+library(dplyr)
+library(MASS)
+library(caret)
+set.seed(123)
+student_digital_life <- read_csv("C:\\Users\\Jairo\\Documents\\universidad\\2cuatri\\Modelo de regresión\\trabajo\\DD_vs_AP-Proyecto\\dataset\\student_digital_life.csv")
+```
+
+#¿Cómo se distribuye la variable respuesta y?
+
+```{r}
+modelo_multivariable <- lm(final_exam_score ~ study_hours_per_day + sleep_hours + motivation_level, 
+                           data = student_digital_life)
+hist(student_digital_life$final_exam_score, main="Y Transformada")
+```
+En la anterior sesión observamos que nuestro modelo de regresión lineal que predecía la variable nota final sufre de la falta de asunciones de homocedasticidad y normalidad. Debido a esto y a que la variable dependiente no sigue una distribución normal (como se puede observar en la grafica) vamos a cambiar de modelo completamente. 
+
+**¿La variable que quiero predecir se distribuye de forma normal? En ese caso, demuestra cómo las asunciones de la regresión lineal se han cumplido, o cómo has conseguido corregirlas.**
+
+Para continuar con esta sesión usaremos el modelo planteado en la sesión cuatro sobre la predicción de uso del movil. La cual predice una variable continua que sigue una distribución normal.
+
+```{r}
+modelo_multivariable_smart <- lm( smartphone_usage_hours ~ study_hours_per_day + streaming_hours + exercise_hours + final_exam_score , data = student_digital_life)
+
+summary(modelo_multivariable_smart)
+hist(student_digital_life$ smartphone_usage_hours, main="Y Transformada")
+```
+
+```{r}
+
+par(mfrow=c(2,2)) 
+plot(modelo_multivariable_smart)
+```
+
+Observamos en las graficas anteriores que en este modelo si se cumplen todas las asunciones. La linealidad y la homocedasticidad se confirman en las graficas Residuals vs Fitted y Scale-Location, donde los residuos se dispersan aleatoriamente a lo largo de una línea central plana. La normalidad de los residuos queda demostrada en el gráfico Q-Q Residuals, con los datos alineándose casi a la perfección sobre la diagonal. Por último, el gráfico Residuals vs Leverage asegura que no existen valores atípicos con una influencia desproporcionada en el modelo, ya que ningún punto se acerca a los umbrales de peligro marcados por la distancia de Cook. 
+
+#¿Cómo son esos modelos? Explica y evalúa esos modelos
+```{r}
+summary(modelo_multivariable_smart)
+```
+
+La evaluación del modelo de regresión lineal confirma que es estadísticamente significativo (p < 0.001), demostrando que existe una relación real entre las variables analizadas y el tiempo de uso del smartphone. Sin embargo, la predicción del modelo es bastante limitada debido a que el R-cuadrado muestra que apenas logra explicar un 3.5% de la varianza en las horas de uso del móvil. Esto significa que el 96.5% del comportamiento de esta variable depende de factores externos no incluidos en el modelo lineal, dejando un margen de desviación promedio en las predicciones de 2.39 horas, según indica el error estándar residual.
+
+Al analizar el impacto individual de las variables, los coeficientes revelan comportamientos contrastantes y estadísticamente significativas, a excepción de las horas de streaming, cuyo efecto se descarta al no ser significativo (p = 0.745). Por un lado, el tiempo de estudio y el de ejercicio físico se relacionan de forma positiva con el uso del movil, incrementándolo en 0.20 y 0.05 horas por cada aumento en unidad de estas actividades. Por el contrario, el rendimiento académico actúa como un factor atenuante, mostrando una relación inversamente proporcional donde el uso del dispositivo se reduce en 0.032 horas por cada punto extra obtenido en la calificación del examen final.
+
+
+#Error de la muestra con la población: Holdout, Validación cruzada, Bootstrap
+
+Para este apartado mejoraremos el modelo lineal anterior, tomando como referencia de mejoría el R-cuadrado ajustado. Para así poder comparar el modelo original con el mejorado.
+
+Modelo original: 
+
+```{r}
+modelo_multivariable_smart <- lm( smartphone_usage_hours ~ study_hours_per_day + streaming_hours + exercise_hours + final_exam_score , data = student_digital_life)
+
+summary(modelo_multivariable_smart)
+```
+Modelo mejorado:
+
+- Añado mas variables continuas y categoricas
+```{r}
+student_digital_life <- student_digital_life %>%
+  mutate(
+    gender = as.factor(gender),
+    mental_health_status = as.factor(mental_health_status),
+    parent_education_level = as.factor(parent_education_level),
+    internet_quality = as.factor(internet_quality)
+  )
+
+modelo3 <- lm(smartphone_usage_hours ~ . - student_id,
+              data = student_digital_life)
+
+summary(modelo3)
+
+```
+
+- Elimino variables que no aportan información para la predicción 
+```{r}
+modelo_multivariable_smart_mejorado <- lm(smartphone_usage_hours ~ study_hours_per_day + social_media_hours +
+              gaming_hours + sleep_hours + exercise_hours +
+              class_attendance_percent + assignment_completion_percent +
+              mental_health_status + parent_education_level +
+              motivation_level + final_exam_score,
+              data = student_digital_life)
+
+summary(modelo_multivariable_smart_mejorado )
+```
+El modelo mejorado presenta un aumento considerable del R-cuadrado ajustado comparado con el modelo original.  A continuación aplicaremos los diversos metodos planteados a nuestros dos modelos para evaluarlos y compararlos. 
+
+**Método Holdout**
+
+```{r}
+indice <- createDataPartition(student_digital_life$smartphone_usage_hours, p = 0.8, list = FALSE)
+datos_train <- student_digital_life[indice, ]
+datos_test  <- student_digital_life[-indice, ]
+
+
+modelo_original_train <- lm(smartphone_usage_hours ~ study_hours_per_day + streaming_hours + exercise_hours + final_exam_score , data = datos_train)
+
+modelo_mejorado_train <- lm(smartphone_usage_hours ~ study_hours_per_day + social_media_hours +
+              gaming_hours + sleep_hours + exercise_hours +
+              class_attendance_percent + assignment_completion_percent +
+              mental_health_status + parent_education_level +
+              motivation_level + final_exam_score, data = datos_train)
+
+
+predicciones_original <- predict(modelo_original_train, datos_test)
+predicciones_mejorado <- predict(modelo_mejorado_train, datos_test)
+
+
+error_holdout_original <- RMSE(predicciones_original, datos_test$smartphone_usage_hours)
+error_holdout_mejorado <- RMSE(predicciones_mejorado, datos_test$smartphone_usage_hours)
+
+print(paste("Error Holdout Modelo 1:", error_holdout_original))
+print(paste("Error Holdout Modelo 2:", error_holdout_mejorado))
+
+```
+
+
+**Cross-Validation con k=10**
+```{r}
+
+control_cv <- trainControl(method = "cv", number = 10)
+
+modelo_original_cv <- train(smartphone_usage_hours ~ study_hours_per_day +
+                              streaming_hours + exercise_hours + final_exam_score,
+                            data = student_digital_life,
+                            method = "lm",
+                            trControl = control_cv)
+
+modelo_mejorado_cv <- train(smartphone_usage_hours ~ study_hours_per_day + social_media_hours +
+                              gaming_hours + sleep_hours + exercise_hours +
+                              class_attendance_percent + assignment_completion_percent +
+                              mental_health_status + parent_education_level +
+                              motivation_level + final_exam_score,
+                            data = student_digital_life,
+                            method = "lm",
+                            trControl = control_cv)
+
+error_cv_original <- modelo_original_cv$results$RMSE
+error_cv_mejorado <- modelo_mejorado_cv$results$RMSE
+
+print(paste("Error Validación Cruzada Modelo 1:", error_cv_original))
+print(paste("Error Validación Cruzada Modelo 2:", error_cv_mejorado))
+
+```
+
+Al pasar los modelos lineales por los dos métodos de evaluación, observamos que sí siguen teniendo un error muy similar al de su ajuste inicial. En los resúmenes originales con el summary(), el modelo original tenía un error residual de 2.394 y el modelo mejorado de 2.381. Tras aplicar el método Holdout, los errores RMSE dieron 2.382 y 2.365 respectivamente. De misma manera, la Validación Cruzada (k=10) dío errores medios de 2.394 y 2.381. Esta altísima consistencia entre el error de entrenamiento y el error de prueba demuestra que los modelos son robustos, generalizan de manera excelente y no sufren de sobreajuste, ya que son capaces de predecir datos no vistos con la misma precisión que los datos con los que fueron creados.
+
+
+En cuanto al orden de cual modelo es mejor, siguen ordenados exactamente igual que antes. El modelo mejorado, que incorpora variables adicionales, ya era el mejor modelo en la fase de entrenamiento (RSE de 2.381 frente al 2.394 del modelo original). Por tanto, se confirma que el modelo mejorado es la mejor opción para predecir las horas de uso del smartphone.
+
+
+Finalmente decidiremos quedarnos con el modelo mejorado porque demuestra ser superior al original. Sin embargo, la diferencia predictoria entre ámbos modelos es mínima, debido a que tienen errores muy similares y poco significantes en el mundo real(el error (RMSE) bajó de 2.394 a 2.381). Además aunque el modelo cumpla con todas las asunciones, sea estable y no tenga sobreajuste, presenta un R-cuadrado ajustado muy bajo de 0.04599 que solo explica 4.6% de la predicción de la información, ya que un error de 2.4 horas hace que el modelo sea muy impreciso. 
+
+
+
+
+
+
