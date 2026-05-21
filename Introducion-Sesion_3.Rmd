@@ -13,6 +13,43 @@ student_digital_life <- read_csv(here("dataset", "student_digital_life.csv"))
 ```
 
 
+# ¿Porque elegimos este dataset?
+Es un tema actual y del cual se habla mucho por redes sociales. Nosotros como estudiantes quisimos probar y experimentar con este dataset para ver si los resultados que esperamos conseguir o alguna hipotesis que planteemos se cumplia y si podriamos reclicarla a beneficio.
+
+# Estructura del dataset
+```{r}
+# Numero de variables
+length(student_digital_life)
+# Ver tipo de variable
+str(student_digital_life)
+```
+
+El dataset cuenta con 18 variables para 15000 registros en total
+
+**Variables del dataset**
+
+- student_id **(numerica)**: Registro de estudiante         
+- age **(numerica)**: Edad              
+- gender**(catergoria)**: Genero      
+- study_hours_per_day**(numerica)**: Horas de estudio al dia 
+- smartphone_usage_hours **(numerica)**: Horas de uso del telefono
+- social_media_hours **(numerica)**: Horas en redes sociales  
+- gaming_hours **(numerica)**: Horas de juego   
+- streaming_hours **(numerica)**: Horas en plataformas de stream  
+- sleep_hours **(numerica)**: Horas de sueño     
+- exercise_hours **(numerica)**: Horas de ejercicio
+- class_attendance_percent **(numerica)**: Asistencia a clases
+- assignment_completion_percent **(numerica)**: Porcentaje de cumplimiento de la asignatura  
+- caffeine_intake_cups **(numerica)**: Tazas de cafe tomadas
+- mental_health_status **(catergoria)**: Estado mental
+- parent_education_level **(catergoria)**: Nivel de educacion de los padres  
+- internet_quality **(catergoria)**: Calidad de internet
+- motivation_level **(numerica)**: Nivel de motivacion
+- final_exam_score **(numerica)**: Calificacion obtenida en el ultimo examen  
+
+# Prueba de ANOVA
+
+Por el objetivo del dataset y las variables que presenta tenemos la facilidad de plantear distintas hipotesis y modelos de regresion. Para este caso planteamos con tres variables: genero, horas de sueño y horas de movil tiene alguna relacion con las horas de sueño.
 
 ```{r}
 #Como el dataset no esta distribuido en factores con sus niveles, debemos usar las variables numericas obtenidas, y crear dos niveles dentro de cada una. 
@@ -32,7 +69,6 @@ student_digital_life$gender <- as.factor(student_digital_life$gender)
 modelo_anova3 <- aov(sleep_hours ~ gender * nivel_smartphone * nivel_gaming, data = student_digital_life)
 summary(modelo_anova3)
 ```
-
 
 *Planteamiento de hipotesis*
 

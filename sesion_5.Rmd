@@ -16,20 +16,25 @@ library(car)         # VIF
 library(repmod)      # Tablas de resultados de modelos
 library(nlme)        #Modificar estructura de la varianza
 library(lattice)     #Gráfico normalidad
-```
-
-```{r}
+library(here)
 library(readr)
-student_digital_life <- read_csv("C:\\Users\\Jairo\\Documents\\universidad\\2cuatri\\Modelo de regresión\\trabajo\\DD_vs_AP-Proyecto\\dataset\\student_digital_life.csv")
-View(student_digital_life)
+library(MASS)
+library(lmtest)
+student_digital_life <- read_csv(here("dataset", "student_digital_life.csv"))
 ```
 
-**¿Podemos corregir las asunciones de linealidad, normalidad y homocedasticidad mediante el uso de logaritmos?**
+# Review de la sesion pasada
 
-En la seseión 4 definimos el modelo "final_exam_score ~ study_hours_per_day + sleep_hours + motivation_level" el cual no cumplía las asunciones de linealidad y homocedasticidad 
+La sesion pasada escogimos uno de nuestros modelos, lo analizamos y descubrimos que no cumple 3 asunciones: linealidad, normalidad y homocedasticidad. Para esta sesion trataremos de corregir estas asunciones por metodos tradicionales. 
 
+# Correcion de las asunciones
 
--> Modelo 1:
+**Descripcion del modelo**
+
+Nota_fina_examen ~ horas_de_estudio + horas_sueño + nivel_motivacion
+
+Es un modelo que utiliza 3 variables predictoras: Horas de estudio, Horas de sueño y nivel de motivación.
+
 ```{r}
 modelo_multivariable <- lm(final_exam_score ~ study_hours_per_day + sleep_hours + motivation_level, 
                            data = student_digital_life)
@@ -37,14 +42,14 @@ modelo_multivariable <- lm(final_exam_score ~ study_hours_per_day + sleep_hours 
 summary(modelo_multivariable)
 ```
 
-**Asunsiones no cumplidas:**
+Todas nuestras variables son significativas para nuestro modelo. Aparentemente nuestro modelo paraceria estar correcto, pero el analisis de las asunciones mostro que no cumple 3 de estas. Acontinuacion vamos a corregirlas.
+
+# Correccion de las asunciones
 
 - Lineadlidad y homocedasticidad: 
 ```{r}
 check_model(modelo_multivariable, check="linearity")
 ```
-
-
 
 
 **Correción de asunciones:**

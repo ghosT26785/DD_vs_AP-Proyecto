@@ -9,9 +9,9 @@ output: html_document
 library(readr)
 library(here)
 library(car)
+library(ggplot2)
 library(lmtest)
-
-student_digital_life <- read_csv("/home/acust/Escritorio/Universidad/1er_any/2do_Cua/Modelos_Regresion/Practicas/Proyecto/dataset/student_digital_life.csv")
+student_digital_life <- read_csv(here("dataset", "student_digital_life.csv"))
 ```
 
 
@@ -30,8 +30,7 @@ summary(modelo_lineal_nota)
 **Modelo-Multivariable:**
 
 ```{r}
-modelo_multivariable_nota <- lm(final_exam_score ~ study_hours_per_day + sleep_hours + motivation_level, 
-                           data = student_digital_life)
+modelo_multivariable_nota <- lm(final_exam_score ~ study_hours_per_day + sleep_hours + motivation_level, data = student_digital_life)
 
 summary(modelo_multivariable_nota)
 ```
@@ -115,32 +114,36 @@ Tenemos que B0 = 6.977401 y B1 =0.008913. El parametro B1 corresponde a Horas de
 Tenemos B0 = 6.9750889, B1 = -0.0038950, B2 = 0.0061939  , B3 = 0.0066186, B4 = 0.0001664 y B5 = -0.0009127. Ningundo de las variables tiene una influencia significativa con el sueño de una persona. 
 
 
-# Diagnostico de Asunciones de un modelo
+# Diagnostico de Asunciones
 
-Para este apartado usaremos el modelo multivariable que predice la nota final que tendra un estudiante en un examen. 
+Vamos a verificar si uno de nuestros modelos cumple con las 6 asunciones. Aunque no hayamos recolectados estos datos asumiremos que la asuncion de la independencia de las observaciones se cumple.
 
 **Linealidad**
 
 ```{r}
 plot(modelo_multivariable_nota, 1)
 ```
-Observamos en la grafica de residuos vs valores ajustados que la linea roja forma una curva. Por lo que la asunción de linealidad no se cumple. 
+
+Por un principio los residuos parecen estar dispersos sin seguir un patron pero a llegar a cierto punto estos cogen una forma diferente con forma escalonada. No se cumple la asuncion de linealidad. 
 
 **Normalidad**
 
 ```{r}
-plot(modelo_multivariable_nota, 2)
+qqnorm(modelo_multivariable_nota$residuals)
+qqline(modelo_multivariable_nota$residuals, col = "red")
 ```
-En la grafica Normal Q-Q, observamos que la mayoria de los puntos siguen la linea recta, y solo algunos puntos del inicio y del final se desvian levemente.  
+
+En el Q-Q plot, observamos que la mayoria de los puntos siguen la linea recta, y solo algunos puntos del inicio y del final se desvian levemente. Aun asi la asuncion de la normalidad no se cumple.  
 
 **Homocedasticidad**
 
 ```{r}
-plot(modelo_multivariable_nota, 3)
+plot(modelo_multivariable_nota, 1)
+
+# Test de Breusch-Pagan
 bptest(modelo_multivariable_nota)
 ```
-Observamos que en la grafica la linea roja no es recta, y al final de esta la disperción de los puntos cambia de ser constante a formar un embudo. Además vemos en el test que el p-value es menor que 0.05 por lo que se rechaza la H0 que es que haya homocedasticidad. Concluimos por las evidencias del test y de la grafica que no se cumple la asunción de la homocedasticidad.
-
+Observamos que en la grafica la linea roja no es recta, y al final de esta la disperción de los puntos cambia de ser constante a formar un embudo. Una segunda comprobacion usando el test Breush nos da un p-value muy bajo, para este caso un p-value menor a 0.05 indica que tiene heterocedasticidad. Concluimos por las evidencias del test y de la grafica que no se cumple la asunción de la homocedasticidad.
 
 **Ausencia de valores extremos**
 
@@ -154,10 +157,9 @@ Podemos observar en nuestra grafica que ningun punto sobrepasa la distancia de c
 
 ```{r}
 vif(modelo_multivariable_nota)
-
 ```
 
-Los valores VIF de las tres variables independientes son menores que 10. Esto nos indica que se cumple la asunción de ausencia de multicolinealidad. 
+Los valores VIF de las tres variables predictores son muy bajas, cumpliendo la asuncion de la multicolinealidad
 
 
 **Independencia de residuos**
@@ -168,8 +170,9 @@ dwtest(modelo_multivariable_nota)
 
 El valor de DW se encuentra entre el 1.5 y el 2.5 por lo que la asunción de independencia de los residuos se cumple. 
 
-
 # Matriz de correlaciones y factores FIV de un modelo multivariable
+
+Aunque ya hemos comprobado que no se cumple la multicolinealidad graficamos una matriz de correlacion para una segunda verificacion
 
 ```{r}
 variables_predictoras <- student_digital_life[c("study_hours_per_day", "sleep_hours", "motivation_level")]
@@ -185,4 +188,6 @@ Observamos que los valores FIV no extremadamente cercanos al 1 y que en la matri
 Tal como hemos estudiado antes, observamos que hay una ausencia de multicolinealidad. 
 
 
+# Conclusiones
 
+En esta sesion hemos definido varios modelos para distintas variables objetivos. Modelos que predicen la nota final de un examen, las horas de sueño y el tiempo de uso de smartphone. Para nuestro analisis escogimos el modelo multivariables sobre la prediccion de la nota final, analizamos si el modelo planteado era robusto y descubrimos que de las 6 asunciones cumple la mitad. Las asunciones faltantes: La normalidad, la linealidad y la homocedasticidad trataremos de corregirlas en la sesion siguiente.
