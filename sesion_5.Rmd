@@ -48,8 +48,17 @@ Todas nuestras variables son significativas para nuestro modelo. Aparentemente n
 
 - Lineadlidad y homocedasticidad: 
 ```{r}
-check_model(modelo_multivariable, check="linearity")
+modelo_multivariable_corregido <- lm(log(final_exam_score) ~ study_hours_per_day + log(sleep_hours) + log(motivation_level), data = student_digital_life)
+plot(modelo_multivariable, 1) + title(main ="Antes de correccion")
+plot(modelo_multivariable_corregido, 1) + title(main ="Despues de correccion")
 ```
+
+Vemos que el emplear los logaritmos, la recta se suaviza la recta casi en 0, no es perfecto del todo pero es una gran correccion que antes de aplicar los logaritmos
+
+
+**Mismo modelo pero con una varible menos **
+
+
 
 
 **Correción de asunciones:**
