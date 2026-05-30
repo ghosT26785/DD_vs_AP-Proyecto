@@ -1,0 +1,186 @@
+---
+title: "Sesion_7"
+author: "Jairo Udaneta y Adrian Villegas"
+date: "2026-05-21"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(dplyr)
+library(glmnet)  
+library(mgcv)    
+library(lme4)     
+library(ggplot2)   
+library(ggeffects)  
+library(repmod)    
+library(clickR)    
+library(corrplot)   
+library(readr)
+
+student_digital_life <- read_csv("C:\\Users\\Jairo\\Documents\\universidad\\2cuatri\\Modelo de regresión\\trabajo\\DD_vs_AP-Proyecto\\dataset\\student_digital_life.csv")
+
+
+student_digital_life$gender               <- as.factor(student_digital_life$gender)
+student_digital_life$mental_health_status <- as.factor(student_digital_life$mental_health_status)
+student_digital_life$parent_education_level <- as.factor(student_digital_life$parent_education_level)
+student_digital_life$internet_quality     <- as.factor(student_digital_life$internet_quality)
+```
+# Elastic Net
+
+## Si elijo una elastic net para penalizar mi modelo ¿que alpha y s elijo?
+
+```{r}
+dim(student_digital_life)
+```
+El uso de la penalización con Elastic Net es recomendado cuando tenemos un dataset con un mayor numeros de variables que de muentras. En nuestro caso nosotros tenemos una base de datos con 15000 muestras y 18 variables, a continuación observaremos que sucede si aplicamos este metodo de penalización.
+
+
+Continuaremos usando de base el modelo mejorado obtenido en la sesión 6. 
+```{r}
+modelo_multivariable_smart_mejorado <- lm(smartphone_usage_hours ~ study_hours_per_day + social_media_hours +
+              gaming_hours + sleep_hours + exercise_hours +
+              class_attendance_percent + assignment_completion_percent +
+              mental_health_status + parent_education_level +
+              motivation_level + final_exam_score,
+              data = student_digital_life)
+
+summary(modelo_multivariable_smart_mejorado )
+```
+
+**Elección de alpha (S)**
+
+Utilizamos la matriz de correlación para poder elegir el valor de alpha.
+```{r}
+num_vars <- student_digital_life[, sapply(student_digital_life, is.numeric)]
+cor_matrix <- cor(num_vars)
+corrplot(cor_matrix, method = "color", type = "upper",
+         tl.cex = 0.7, addCoef.col = "black", number.cex = 0.5)
+```
+Como la mayoria de correlaciones son cercanas a cero, elegiremos un alpha de 1, es decir un modelo de Lasso(L1)
+
+
+Preparamos las matrices para usar glmnet, y ejecutamos una validación cruzada para elergir S.
+```{r}
+X <- model.matrix(modelo_multivariable_smart_mejorado, data = student_digital_life)[, -1] 
+Y <- student_digital_life$smartphone_usage_hours
+
+set.seed(123)
+cv_enet <- cv.glmnet(X, Y, alpha = 1, nfolds = 10)
+plot(cv_enet)
+
+
+```
+La linea de puntos de la grafica nos marca la lambda con menor error posible que mantenga un modelo simple. En este caso nuestra lambda será 3. 
+
+
+
+Separamos los datos para la evaluación de modelo lineal y creamos las matrices que usará glmnet para realizar el Lasso.
+```{r}
+set.seed(42)
+idx <- sample(1:nrow(student_digital_life), 0.8 * nrow(student_digital_life))
+
+
+df_train <- student_digital_life[idx, ]
+df_test  <- student_digital_life[-idx, ]
+
+
+X <- model.matrix(smartphone_usage_hours ~ study_hours_per_day + social_media_hours + 
+                  gaming_hours + sleep_hours + exercise_hours + 
+                  class_attendance_percent + assignment_completion_percent + 
+                  mental_health_status + parent_education_level + 
+                  motivation_level + final_exam_score, 
+                  data = student_digital_life)[, -1]
+
+X_train <- X[idx, ]
+X_test  <- X[-idx, ]
+Y_train <- student_digital_life$smartphone_usage_hours[idx]
+Y_test  <- student_digital_life$smartphone_usage_hours[-idx]
+```
+
+
+Entramos ámbos modelos.
+```{r}
+
+modelo_lm_limpio <- lm(smartphone_usage_hours ~ study_hours_per_day + social_media_hours + 
+                       gaming_hours + sleep_hours + exercise_hours + 
+                       class_attendance_percent + assignment_completion_percent + 
+                       mental_health_status + parent_education_level + 
+                       motivation_level + final_exam_score, 
+                       data = df_train) # ¡AQUÍ ESTÁ LA CLAVE! Usar data = df_train
+
+
+cv_lasso <- cv.glmnet(X_train, Y_train, alpha = 1, nfolds = 10)
+```
+
+Procedemos a evaluarlos
+```{r}
+#Predicciones
+pred_lm <- predict(modelo_lm_limpio, newdata = df_test)
+pred_lasso <- predict(cv_lasso, newx = X_test, s = "lambda.1se") # Usamos el modelo más simple
+
+#RMSE
+rmse_lm <- sqrt(mean((Y_test - pred_lm)^2))
+rmse_lasso <- sqrt(mean((Y_test - pred_lasso)^2))
+
+cat("RMSE OLS Limpio:", round(rmse_lm, 3), "\nRMSE Lasso:", round(rmse_lasso, 3))
+
+```
+Como el modelo lineal y el modelo Lasso tienen un RMSE parecido, concluimos que el modelo penalizado es un poco mejor que el modelo lineal con la ventaja de que el modelo L1 es más simple, ya que tiene menos variables irrelevantes.
+
+# GAM
+
+El primer paso para crear un modelo adictivo generalizado es visualizar que variables son continuas (las cuales suavizaremos con s() ) y las categorias (las cuales mantendremos como terminos lineales)
+```{r}
+# Verificar la estructura del dataset
+str(student_digital_life)
+```
+Con esta información creamos el GAM
+```{r}
+modelo_gam <- gam(
+  smartphone_usage_hours ~ 
+    s(study_hours_per_day) +
+    s(social_media_hours) +
+    s(gaming_hours) +
+    s(sleep_hours) +
+    s(exercise_hours) +
+    s(class_attendance_percent) +
+    s(assignment_completion_percent) +
+    mental_health_status +
+    parent_education_level +
+    s(motivation_level) +
+    s(final_exam_score),
+  data = student_digital_life,
+  method = "REML"
+)
+
+summary(modelo_gam)
+```
+Observamos en el análisis del modelo obtenido que en los terminos lineales parent_education_level no aporta mucha información a la predicción debido a que solamente uno de sus valores categoricos tiene un p-value menor que 0,05. Por otro lado, mental_health_status si que aporta más infomación, ya que es estadisticamente significante en sus dos valores categoricos. 
+
+En cuanto a las funciones suavizadas observamos que todas son estadisticamen significantes, y que la mayoría tiene un edf mayor que 1, lo que significa que no sigue una relación lineal y que el suavizado a cumplido su proposito. Sin embargo, funciones suavizadas como s(social_media_hours), s(exercise_hours)  y s(class_attendance_percent) las cuales tienen valores muy cercanas a 1, indicandonos que el suavizado no aporto nada, ya que siguen practicamente una relación lineal 
+
+```{r}
+par(mfrow = c(3, 3))  
+plot(modelo_gam, shade = TRUE, col = "blue", shade.col = "lightblue", 
+     seWithMean = TRUE, scale = 0)
+```
+En estas graficas observamos de manera visual que las funciones de suavizado con un edf muy cercano a uno siguen practicamente una regresión lineal. 
+
+
+# GLMMs
+
+Para saber si podemos crear un GLMMs con nuestro dataset, tenemos que ver si las observaciones son independientes o dependientes. 
+```{r}
+n_distinct(student_digital_life$mental_health_status)
+n_distinct(student_digital_life$parent_education_level)
+n_distinct(student_digital_life$gender)
+
+head(student_digital_life, 10)
+
+```
+Observamos en el análisis obtenido del dataset que no hay observaciones de estudiantes repetidos ni variables de agrupación. Además, las variables categoricas que tenemos tienen muy pocos niveles. Por lo que concluimos que no seria eficiente realizar un GLMM con nuestro datase.
+
+
+
+
+
