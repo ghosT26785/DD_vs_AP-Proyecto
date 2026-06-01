@@ -12,47 +12,65 @@ library(dplyr)
 library(MASS)
 library(caret)
 library(here)
-set.seed(123)
+
 student_digital_life <- read_csv(here("dataset", "student_digital_life.csv"))
 
 ```
 
-#¿Cómo se distribuye la variable respuesta y?
+# ¿Que tenemos hasta ahora?
+
+En practicas pasadas habiamos definido dos modelos multivariables que predicen la nota final y el tiempo de uso del telefono para estudiantes. Luego corregimos las asunciones que hacian falta o decidimos que un modelo de regresion lineal no era lo sufientemente bueno para explicar nuestro modelo. A continuacion veremos si como podemos desarrollar nuestros modelos y si podemos utilizar otros modelos para explicar nuestras variables objetivos 
+
+
+# Distribuccion de nuestras variables objetivos
+
+- Modelo prediccion nota
 
 ```{r}
-modelo_multivariable <- lm(final_exam_score ~ study_hours_per_day + sleep_hours + motivation_level, 
-                           data = student_digital_life)
-hist(student_digital_life$final_exam_score, main="Y Transformada")
+hist(student_digital_life$final_exam_score, main="Distribuccion-Notas finales")
 ```
-En la anterior sesión observamos que nuestro modelo de regresión lineal que predecía la variable nota final sufre de la falta de asunciones de homocedasticidad y normalidad. Debido a esto y a que la variable dependiente no sigue una distribución normal (como se puede observar en la grafica) vamos a cambiar de modelo completamente. 
 
-**¿La variable que quiero predecir se distribuye de forma normal? En ese caso, demuestra cómo las asunciones de la regresión lineal se han cumplido, o cómo has conseguido corregirlas.**
+En la anterior sesión observamos que nuestro modelo de regresión lineal que predecía la variable nota final sufre de la falta de asunciones de linealidad, homocedasticidad y normalidad. La variable que tratamos de predecir tampoco sigue una distribuccion normal, si nos fijamos en la grafico hay una asimetria negativa. Desde la sesion pasada sabiamos que una regresion lineal no serviria en este caso. Estuvimos investigando tanto en internet como consultas a LMM's sobre que podriamos hacer.  
 
-Para continuar con esta sesión usaremos el modelo planteado en la sesión cuatro sobre la predicción de uso del movil. La cual predice una variable continua que sigue una distribución normal.
+
+- Modelo prediccion smartphone
 
 ```{r}
-modelo_multivariable_smart <- lm( smartphone_usage_hours ~ study_hours_per_day + streaming_hours + exercise_hours + final_exam_score , data = student_digital_life)
-
-summary(modelo_multivariable_smart)
-hist(student_digital_life$ smartphone_usage_hours, main="Y Transformada")
+hist(student_digital_life$ smartphone_usage_hours, main="Distribuccion-Horas de uso telefono")
 ```
+
+Nuestro modelo actual tenia corregidas sus asunciones, no a la perfeccion pero corregimos lo mas que pudimos. Nuestra variable Y sigue una lo mas parecido a una distribuccion normal. Por lo que mantendremos nuestro modelo de regresion linel, pero corrigiendo ciertos detalles como aumentar el R^2 ajustado que vimos la practica pasada. 
+
+
+# Nuevos modelos
+
+
+
+- LM-Prediccion smartphone
+
+Anteriormente la variable de horas de smartphone 
+
 
 ```{r}
+modelo_multivariable_smart_corregido <- lm(smartphone_usage_hours ~ social_media_hours + final_exam_score + study_hours_per_day + sleep_hours + class_attendance_percent + motivation_level , data = student_digital_life)
 
-par(mfrow=c(2,2)) 
-plot(modelo_multivariable_smart)
+model_performance(modelo_multivariable_smart_corregido)
+
+summary(modelo_multivariable_smart_corregido)
 ```
 
-Observamos en las graficas anteriores que en este modelo si se cumplen todas las asunciones. La linealidad y la homocedasticidad se confirman en las graficas Residuals vs Fitted y Scale-Location, donde los residuos se dispersan aleatoriamente a lo largo de una línea central plana. La normalidad de los residuos queda demostrada en el gráfico Q-Q Residuals, con los datos alineándose casi a la perfección sobre la diagonal. Por último, el gráfico Residuals vs Leverage asegura que no existen valores atípicos con una influencia desproporcionada en el modelo, ya que ningún punto se acerca a los umbrales de peligro marcados por la distancia de Cook. 
 
-#¿Cómo son esos modelos? Explica y evalúa esos modelos
-```{r}
-summary(modelo_multivariable_smart)
-```
 
-La evaluación del modelo de regresión lineal confirma que es estadísticamente significativo (p < 0.001), demostrando que existe una relación real entre las variables analizadas y el tiempo de uso del smartphone. Sin embargo, la predicción del modelo es bastante limitada debido a que el R-cuadrado muestra que apenas logra explicar un 3.5% de la varianza en las horas de uso del móvil. Esto significa que el 96.5% del comportamiento de esta variable depende de factores externos no incluidos en el modelo lineal, dejando un margen de desviación promedio en las predicciones de 2.39 horas, según indica el error estándar residual.
 
-Al analizar el impacto individual de las variables, los coeficientes revelan comportamientos contrastantes y estadísticamente significativas, a excepción de las horas de streaming, cuyo efecto se descarta al no ser significativo (p = 0.745). Por un lado, el tiempo de estudio y el de ejercicio físico se relacionan de forma positiva con el uso del movil, incrementándolo en 0.20 y 0.05 horas por cada aumento en unidad de estas actividades. Por el contrario, el rendimiento académico actúa como un factor atenuante, mostrando una relación inversamente proporcional donde el uso del dispositivo se reduce en 0.032 horas por cada punto extra obtenido en la calificación del examen final.
+
+
+
+
+
+
+
+
+
 
 
 #Error de la muestra con la población: Holdout, Validación cruzada, Bootstrap

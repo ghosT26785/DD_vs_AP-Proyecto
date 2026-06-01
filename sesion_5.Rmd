@@ -25,210 +25,274 @@ student_digital_life <- read_csv(here("dataset", "student_digital_life.csv"))
 
 # Review de la sesion pasada
 
-La sesion pasada escogimos uno de nuestros modelos, lo analizamos y descubrimos que no cumple 3 asunciones: linealidad, normalidad y homocedasticidad. Para esta sesion trataremos de corregir estas asunciones por metodos tradicionales. 
+La sesion pasada escogimos dos de nuestros modelos, los analizamos y descubrimos que:
+
+**LM-Nota final**
+
+✕ Asuncion de linealidad
+
+✕ Asuncion de homocedasticidad
+
+✕ Asuncion de normalidad
+
+✓ Asuncion de ouliers influyentes
+
+✓ Asuncion de multicorrelacion
+
+✓ Independencia de observaciones
+
+**LM-Horas de smartphone**
+
+✓ Asuncion de linealidad
+
+✕ Asuncion de homocedasticidad
+
+✓ Asuncion de normalidad
+
+✓ Asuncion de ouliers influyentes
+
+✓ Asuncion de multicorrelacion
+
+✓ Independencia de observaciones
+
+Sabiendo que asunciones no se cumplen en este informe vamos a tratar de corregirlas usando logaritmos y en caso de no tener buenos resultados buscaremos otras opciones.
 
 # Correcion de las asunciones
 
+## Modelo de prediccion-Nota final
+
 **Descripcion del modelo**
 
-Nota_fina_examen ~ horas_de_estudio + horas_sueño + nivel_motivacion
+Nota_fina_examen ~ horas_de_estudio + horas_sueño + nivel_motivacion + porcentaje_asistencia_clase
 
-Es un modelo que utiliza 3 variables predictoras: Horas de estudio, Horas de sueño y nivel de motivación.
+Es un modelo que utiliza 4 variables predictoras: Horas de estudio, Horas de sueño, Nivel de motivación y Porcentaje de asistencia a clases
 
 ```{r}
-modelo_multivariable <- lm(final_exam_score ~ study_hours_per_day + sleep_hours + motivation_level, 
-                           data = student_digital_life)
+modelo_multivariable_nota <- lm(final_exam_score ~ study_hours_per_day + sleep_hours + motivation_level + class_attendance_percent, data = student_digital_life)
 
-summary(modelo_multivariable)
 ```
 
-Todas nuestras variables son significativas para nuestro modelo. Aparentemente nuestro modelo paraceria estar correcto, pero el analisis de las asunciones mostro que no cumple 3 de estas. Acontinuacion vamos a corregirlas.
+Todas nuestras variables son significativas para nuestro modelo. Aparentemente nuestro modelo paraceria estar correcto, pero el analisis de las asunciones mostro que no cumple 3 de estas: linealidad, homocedasticidad y normalidad. Acontinuacion vamos a corregirlas.
 
-# Correccion de las asunciones
+**Aplicacion de Logaritmos**
 
-- Lineadlidad y homocedasticidad: 
+Primero comprobamos cuales de nuestras variables predictoras necesitan correccion.
+
 ```{r}
-modelo_multivariable_corregido <- lm(log(final_exam_score) ~ study_hours_per_day + log(sleep_hours) + log(motivation_level), data = student_digital_life)
-plot(modelo_multivariable, 1) + title(main ="Antes de correccion")
-plot(modelo_multivariable_corregido, 1) + title(main ="Despues de correccion")
+avPlots(modelo_multivariable_nota)
 ```
 
-Vemos que el emplear los logaritmos, la recta se suaviza la recta casi en 0, no es perfecto del todo pero es una gran correccion que antes de aplicar los logaritmos
-
-
-**Mismo modelo pero con una varible menos **
-
-
-
-
-**Correción de asunciones:**
-
-- Linealidad y homocedasticidad:
 ```{r}
-#Empezamos aplicando el logaritmo a la variable dependiente
-mod1log <- lm(log(final_exam_score) ~ study_hours_per_day + sleep_hours + motivation_level, data=student_digital_life)
-
-#Homocedasticidad y linealidad
-check_model(mod1log, check="linearity")
-```
-Aunque podemos ver una mejoría en el grafico ya que la línea se convierte menos curva y los puntos estan un poco más centrados. Sigue habiendo una notoria ausencia de la asunsión de linealidad y homocedasticidad.
-
-
-
-
-```{r}
-#Modificar estructura de la varianza con aumento potencial
-mod1_varp <- gls(final_exam_score ~ study_hours_per_day + sleep_hours + motivation_level, weights = varConstPower(form = ~ study_hours_per_day + sleep_hours + motivation_level), data=student_digital_life)
-
-#Linealidad y homocedasticidad
-plot(mod1_varp, abline=0)
+modelo_multivariable_nota_corregido <- lm(log(final_exam_score) ~ log(study_hours_per_day+1) + sleep_hours + log(motivation_level) + log(class_attendance_percent), data = student_digital_life)
 ```
 
+**Linealidad y Homocedasticidad**
 
 ```{r}
-#Modificar estructura de la varianza con aumento exponencial
-mod2_vare <- gls(final_exam_score ~ study_hours_per_day + sleep_hours + motivation_level, weights = varExp(form = ~study_hours_per_day + sleep_hours + motivation_level), data=student_digital_life)
-
-#Linealidad y homocedasticidad
-plot(mod2_vare, abline=0)
-```
-Después de modificar la estructura de la varianza con un aumento exponencial dos veces, notamos una muy leve mejoria. Pero sigue sin cumplirse la asunsión de linealidad y homocedasticidad. Por lo que concluimos que las variables predictoras no son eficientes para el modelo lineal.
-
-Por lo que cambiaremos las variables predictoras de nuestro modelo. 
-
-
-
-
-
-**¿Teníamos outilers influyentes? ¿Cuántos?**
-
-```{r}
-n <- nrow(modelo_multivariable)
-p <- length(coef(modelo_multivariable))  
-
-# Umbrales estándar
-umbral_cook     <- 4 / n                  # regla común: 4/n
-umbral_leverage <- 2 * p / n             # 2p/n
-umbral_dffits   <- 2 * sqrt(p / n)       # 2*sqrt(p/n)
-umbral_rstud    <- 2                     # |t| > 2
-
-# Identificar cuáles superan cada umbral
-outliers_cook     <- which(cook > umbral_cook)
-outliers_leverage <- which(leverage > umbral_leverage)
-outliers_dffits   <- which(abs(dffits) > umbral_dffits)
-outliers_rstud    <- which(abs(rstud) > umbral_rstud)
-
-# Unión: casos influyentes en AL MENOS una métrica
-influyentes <- unique(c(outliers_cook, outliers_leverage,
-                         outliers_dffits, outliers_rstud))
-
-cat("Número de outliers influyentes:", length(influyentes), "\n")
+check_model(modelo_multivariable_nota, check="linearity")
+check_model(modelo_multivariable_nota_corregido, check="linearity")
 ```
 
+Vemos que el emplear los logaritmos, la recta se suaviza esta mas centrada en 0, no es perfecto del todo pero es una gran correccion que antes de aplicar los logaritmos. Podriamos decir que hemos mejorado la linealidad pero aun seguimos presentando heterocedasticidad en los residuos.
+
+
+**Normalidad**
 
 ```{r}
-# gráficos diagnósticos estándar (incluye Cook's distance)
-par(mfrow = c(2, 2))
-plot(modelo_multivariable)   
-
-# Gráfico de Cook específico
-plot(cook, type = "h", main = "Distancia de Cook",
-     ylab = "Cook's D", xlab = "Observación")
-abline(h = umbral_cook, col = "red", lty = 2)
-text(outliers_cook, cook[outliers_cook],
-     labels = outliers_cook, pos = 3, cex = 0.8)
+check_model(modelo_multivariable_nota, check="qq", detrend=FALSE) 
+check_model(modelo_multivariable_nota_corregido, check="qq", detrend=FALSE) 
 ```
-En nuestro modelo tenemos un total de 646 outliers de 15000 datos. Con el apoyo de distinta graficas estudiaremos si estos outliers son influyentes.
 
-La grafica de la distancia de Cook nos muestra que la mayoria de datos estan por debajo del umbral de 0.25, con excepción de unos pocos que si lo superan. Pero que no son lo suficientes dominante para romper el modelo. 
+La aplicacion de logaritmos solo nos ha ayudado a arreglar la linealidad, la homocedasticidad no parece haberse arreglado y hemos empeorado la normalidad comparado con el modelo anterior. El uso de logaritmos no es suficiente para nuestro modelo, necesitariamos usar modelos mas avanzados GLM.
 
-Las graficas Scale-Location y Residual vs Fitted muestran una clara hererocidad, donde en la grafica Residual vs Fitted muestra como los datos se estrechan hacia la derecha, y en la grafica Scale-Location vemos como la línea roja tiene una pendiente y la los puntos no estan distribuidos homogeneamente. 
+## Modelo de prediccion-Horas smartphone
 
-En la grafica Q-Q Residual, aunque los datos cumplen la normalidad en el centro de la línea, hacia la izquierda y un poco hacia la derecha de esta, los puntos se dispersan notablemente.
+**Descripcion del modelo**
 
-Finalmente, en Residuals vs Leverage hay puntos con residuos muy grandes pero leverage bajo, es decir que son outliers en Y (valores atípicos en la respuesta), no en X.
+Horas_uso_smartphone ~ horas_de_estudio + horas_de_streaming + horas_ejercicio + calificacion_examen_final
 
-
-- Conclusión de las graficas - 
-
-Después de análizar los graficos, concluimos que los 646 outliers, que representan un 4% del dataset aproximadamente, no deben ser eliminados de la base de datos. Debido a que el leverage es extremadamente bajo, descartando que sean errores en las variables predictoras. Además, el problema más relevante que hemos detectado es la heterocedasticidad, que vemos en las graficas Residuals vs Fitted y Scale-Location. Por estas razones, intentaremos ponderarlos mediante regresión robusta, como el método MM, o mínimos cuadrados ponderados. Para buscar una corrección de la falta de asunsiones presentadas. 
-
+Es un modelo que utiliza 4 variables predictoras: Horas de estudio, Horas de streaming, Horas de ejercicio y La nota que obtuvieron en el examen.
 
 ```{r}
-library(MASS)
+modelo_multivariable_smart <- lm( smartphone_usage_hours ~ study_hours_per_day + streaming_hours + exercise_hours + final_exam_score , data = student_digital_life)
+```
 
-#Regresión robusta MM 
-modelo_robusto <- rlm(final_exam_score ~ study_hours_per_day + sleep_hours + motivation_level, 
-                           data = student_digital_life, 
-                      method = "MM")  # MM es más robusto que M
+Todas nuestras variables son significativas para nuestro modelo. Aparentemente nuestro modelo paraceria estar correcto, pero el analisis de las asunciones mostro que no cumple 1 la homocedasticidad. A continuacion vamos a corregirla usando dos metodos y ver cual es mejor.
 
-summary(modelo_robusto)
+**Correccion Homocedasticidad usando logaritmos**
 
-#WLS 
-residuos_aux <- residuals(lm(final_exam_score ~ study_hours_per_day + sleep_hours + motivation_level, 
-                           data = student_digital_life))
-pesos <- 1 / (fitted(lm(abs(residuos_aux) ~ fitted(lm(final_exam_score ~ study_hours_per_day + sleep_hours + motivation_level, 
-                           data = student_digital_life))))^2)
+Primero comprobamos cuales de nuestras variables predictoras necesitan correccion.
 
-modelo_wls <- lm(final_exam_score ~ study_hours_per_day + sleep_hours + motivation_level, 
-                           data = student_digital_life, 
-                 weights = pesos)
+```{r}
+avPlots(modelo_multivariable_smart)
+```
+Aplicamos algoritmos a las variables que tienen un ascenso o descenso en su recta.
 
-summary(modelo_wls)
+```{r}
+modelo_multivariable_smart_corregido <- lm( log(smartphone_usage_hours+1) ~ log(study_hours_per_day+1) + streaming_hours + exercise_hours + log(final_exam_score) , data = student_digital_life)
+```
 
-# Comparar coeficientes entre modelo original y robusto
-cbind(
-  Original  = coef(modelo_multivariable),
-  Robusto   = coef(modelo_robusto),
-  WLS       = coef(modelo_wls)
+Verificamos los graficos de Antes y Despues de las correcciones
+
+```{r}
+check_model(modelo_multivariable_smart, check="linearity")
+check_model(modelo_multivariable_smart_corregido, check="linearity")
+```
+
+Vemos que el emplear los logaritmos, la recta se curva y ahora no solo seguimos sin cumplir la homocedasticidad sino que hemos creado otra asuncion. Intentaremos corregir la asuncion usando otro metodo.
+
+**Correccion Homocedasticidad usando VarExp**
+
+```{r}
+modelo_multivariable_smart_corregido <- gls(smartphone_usage_hours ~ study_hours_per_day + streaming_hours + exercise_hours + final_exam_score , data = student_digital_life, weights = varExp(form = ~ final_exam_score))
+
+```
+
+Graficos de Antes y Despues
+
+```{r}
+check_model(modelo_multivariable_smart, check="linearity")
+
+plot(modelo_multivariable_smart_corregido, abline = 0)
+```
+
+Vemos una distribuccion de los residuos mucho mejor, mayor uniformidad pero no del todo perfecto. Aun asi daremos como bueno este modelo y tomaremos como corregida la homocedasticidad.
+
+
+# Verificacion Asunciones
+
+Volvemos a verificar los modelos corregidos a ver si no hemos creado alguna otra asuncion.
+
+**Linealidad y homocedasticidad**
+
+- Modelo prediccion nota
+
+```{r}
+check_model(modelo_multivariable_nota_corregido, check="linearity")
+```
+
+Suavizamos la recta ahora esta mas a pegada al 0 pero no es una corregion al completo, aparte seguimos presentando heterocedasticidad.
+
+- Modelo prediccion horas smart
+
+```{r}
+plot(modelo_multivariable_smart_corregido, abline=0)
+```
+
+Nuestro modelo anterior ya cumplia la linealidad y ahora parece que hemos corregido un poco la heterocedasticidad de la que sufriamos.
+
+**Normalidad**
+
+- Modelo prediccion nota
+
+```{r}
+check_model(modelo_multivariable_nota_corregido, check="qq", detrend=FALSE) 
+```
+
+Anteriormente seguiamos sin cumplir la normalidad pero con la aplicacion de algoritmos solo hemos empeorado
+
+- Modelo prediccion horas smart
+
+```{r}
+res <- resid(modelo_multivariable_smart_corregido, type = "p")
+qqnorm(res)
+qqline(res, col = "red", lwd = 2)
+```
+
+Seguimos manteniendo la normalidad inclusive parece haber mejorado un poco a comparacion del modelo anterior.
+
+**Outliers influyentes**
+
+- Modelo prediccion nota
+
+```{r}
+check_model(modelo_multivariable_nota_corregido, check="outliers")
+```
+
+Seguimos sin outliers influyentes para este modelo.
+
+- Modelo prediccion horas smart
+
+```{r}
+check_outliers(modelo_multivariable_smart_corregido)
+```
+
+Seguimos sin outliers influyentes para este modelo.
+
+**Multicorrelacion**
+
+- Modelo prediccion nota
+
+```{r}
+vif(modelo_multivariable_nota_corregido)
+```
+
+Seguimos cumpliendo la ausencia de multicolinealidad.
+
+- Modelo prediccion horas smart
+
+```{r}
+vif(modelo_multivariable_smart_corregido)
+```
+
+Seguimos cumpliendo la ausencia de multicolinealidad.
+
+# Evaluacion de los modelos
+
+Evaluacion de los ajustes relativos y absolutos de nuestros modelos.
+
+- Modelo Prediccion nota
+
+Vamos a comparar las metricas del modelo antes y despues de sus correcciones
+
+```{r}
+compare_performance(modelo_multivariable_nota, modelo_multivariable_nota_corregido)
+```
+
+El RSME no se puede comparar de la misma forma por la aplicacion del logaritmo. Transformamos a las unidades originales para compararlos
+
+```{r}
+pred_orig <- predict(modelo_multivariable_nota)
+rmse_orig <- sqrt(mean((student_digital_life$final_exam_score - pred_orig)^2))
+
+# Volver a escala original modelo con log
+pred_corr_log <- predict(modelo_multivariable_nota_corregido)
+pred_corr_original_scale <- exp(pred_corr_log)  # Back-transformation
+
+# Calcular RMSE en escala original
+rmse_corr <- sqrt(mean((student_digital_life$final_exam_score - pred_corr_original_scale)^2))
+
+# Comparar
+data.frame(
+  Modelo = c("Original", "Corregido (back-transformed)"),
+  RMSE_escala_original = c(rmse_orig, rmse_corr)
 )
-
 ```
-Comparado los dos modelos procedentes de la ponderación con el original, observamos que el modelo WLS es el que mejor resultados nos da, ya que pondera los outliers por su varianza, corrige la heterocedasticidad y produce estimaciones más fiables de los coeficientes reales.
+
+La comparacion de los ajustes de ambos modelos:
+
+**AIC**: El modelo antiguo tiene mejor AIC
+
+**RMSE**: Modelo actual tiene menos RMSE
+
+**R^2 ajustado** Un valor R^2 ajustado por parte del primer modelo
+
+Concluimos con la comparacion de los dos modelos que el primer modelo pese a no cumplir las asunciones de linealidad, homocedasticidad y normalidad tiene mejores resultados que el modelo que supuestamente habiamos corregido. De todas formas habiamos concluido que este modelo necesitaria usar otro tipo de modelo lineal posiblemente un GLM.
+
+- Modelo Prediccion smartphone
+
+Vamos a comparar las metricas del modelo antes y despues de sus correcciones
 
 ```{r}
-par(mfrow = c(2, 2))
-plot(modelo_wls)   # gráficos diagnósticos estándar (incluye Cook's distance)
-
-# Gráfico de Cook específico
-plot(cook, type = "h", main = "Distancia de Cook",
-     ylab = "Cook's D", xlab = "Observación")
-abline(h = umbral_cook, col = "red", lty = 2)
-text(outliers_cook, cook[outliers_cook], labels = outliers_cook, pos = 3, cex = 0.8)
-```
-Pero al análizar el nuevo modelos con las graficas correspondientes, observamos que aunque el nuevo modelo ha mejorado notablemente, sigue presentando heterocidad y falta de normalidad.Esto nos indica que la causa del problema no son los outliers, sino que proviene de la naturaleza del dataset.
-
-Dejando como mejor opción, cambiar a un modelo de regresió GLM
-
-**Evaluación de nuestros modelos: R^2 ajustado, AIC, ERMS.**
-
-Para este apartado compararemos el modelo multivariable que hemos estado trabajando con su versión univariable. 
-
-```{r}
-modelo_multivariable <- lm(final_exam_score ~ study_hours_per_day + sleep_hours + motivation_level, 
-                           data = student_digital_life)
-
-modelo_univariable_nota <- lm( final_exam_score ~ class_attendance_percent, data = student_digital_life)
-
+compare_performance(modelo_multivariable_smart, modelo_multivariable_smart_corregido)
 ```
 
-**R^2 ajustado**
-```{r}
-summary(modelo_multivariable)$adj.r.squared
-summary(modelo_univariable_nota)$adj.r.squared
-```
-**AIC**
-```{r}
-AIC(modelo_multivariable)
-AIC(modelo_univariable_nota)
-```
-**RMSE**
-```{r}
-sqrt(mean(modelo_multivariable$residuals^2))
-sqrt(mean(modelo_univariable_nota$residuals^2))
-```
-El modelo multivariable resulta superior al univariable en las tres métricas vistas.Debido a que presenta un R² ajustado de 0,44 frente al 0,02 del univariable, explicando así un 44,4% de la varianza de la variable dependiente, un AIC de 121.199,7 frente a 129.695,3, reflejando mejor equilibrio entre ajuste y complejidad, y un RMSE de 13,75 frente a 18,25, lo que supone un 24% menos de error en las predicciones. No obstante, el R² ajustado moderado indica que aún existe margen de mejora, esto debido a la falta de asunciones de homocedasticidad y normalidad vistas con anterioridad. 
+La comparacion de los ajustes de ambos modelos:
 
+**AIC**: Modelo actual tiene mejor AIC debido a la mejora de la heterocedasticidad
 
+**RMSE**: Ambos modelos igual
 
+**R^2 ajustado**: Ambos modelos tienen un R^2 ajustado de 3.5% muy bajo por lo que no explican bien la variabilidad.
 
+Conclusiones en las comparaciones. Nuestro modelo actual tiene mejor rendimiento que el anterior pero nuestro mayor problema es que tenemos un R^2 muy bajo, por lo que en futuras practicas mejoraremos agregando mas variables para mejorar el R^2.

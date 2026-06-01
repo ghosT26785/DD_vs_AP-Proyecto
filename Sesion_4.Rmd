@@ -7,6 +7,7 @@ output: html_document
 
 ```{r setup, include=FALSE}
 library(readr)
+library(performance) # Gráficos de diagnóstico
 library(here)
 library(car)
 library(ggplot2)
@@ -30,7 +31,7 @@ summary(modelo_lineal_nota)
 **Modelo-Multivariable:**
 
 ```{r}
-modelo_multivariable_nota <- lm(final_exam_score ~ study_hours_per_day + sleep_hours + motivation_level, data = student_digital_life)
+modelo_multivariable_nota <- lm(final_exam_score ~ study_hours_per_day + sleep_hours + motivation_level + class_attendance_percent, data = student_digital_life)
 
 summary(modelo_multivariable_nota)
 ```
@@ -39,14 +40,16 @@ summary(modelo_multivariable_nota)
 
 **Modelo univariable**
 
-Tenemos que B0 = 56.94628 y B1 = 0.27. Este valor de B1 tiene un p-value significativamente pequeña, este parametro corresponde a la asistencia que un estudiante a tenenido en todas sus clases. Indicando una fuerte relacion, a mas asistencia a clases tiende a tener una mejor nota.
+- Intercepto B0 = 56.94628 
+- class_attendance_percent B1 = 0.27. P-value significante, este parametro corresponde a la asistencia que un estudiante a tenenido en todas sus clases. Indicando una fuerte relacion, a mas asistencia a clases tiende a tener una mejor nota.
 
 **Modelo multivariable**
 
-Obtenemos el B0 = 37.91076 que es valor de la variable dependiente cuando las variables independientes tomen el valor 0. Por otro lado, tenemos el B1 = 5.99010 para las horas de estudio por día, el B2 = 0.96336 para las horas de sueño, y el B3 = 1.44755 para el nivel de motivación. Según aumenten el valor de la variable independiente relacionada con su coeficiente harán que la variable dependiente aumente, asumiendo que el resto de las variables se mantienen constantes. 
-
-Las tres variables independientes seleccionadas dan una predicción estadísticamente relevante debido a que tienen valores muy por debajo del 0.05. 
-
+- Intercepto B0 = 15.66551 Valor del intercepto cuando las variables independientes tomen el valor 0.
+- study_hours_per_day B1 =  5.97874 Relacion positiva, para mas horas de estudio por día esperamos incrementar la nota final. Muy significativa 
+- sleep_hours B2 =  0.970305 Relacion positiva, mas horas de sueño hay un incremento en la nota. Muy significativa 
+- motivation_level B3 = 1.434107 Relacion positiva, a mayor nivel de motivacion mejores resultados. Muy significativa
+- class_attendance_percent B4 = 0.26347 Relacion positiva, la asistencia de un estudiante en clases afecta a la nota final. Muy significativa
 
 ### Prediccion de tiempo de uso de smartphones
 
@@ -59,7 +62,6 @@ modelo_lineal_smart <- lm( smartphone_usage_hours ~ social_media_hours, data = s
 
 summary(modelo_lineal_smart)
 ```
-
 
 **Modelo-Multivariable**
 
@@ -74,13 +76,16 @@ summary(modelo_multivariable_smart)
 
 **Modelo univariable**
 
-Obtenemos el B0 =  5.39312 que es valor de la variable dependiente cuando la variable independiente toma el valor 0. Por otro lado, tenemos el B1 = 0.03138 para las horas de redes sociales. Según aumente el valor de la variable independiente relacionada con su coeficiente hará que la variable dependiente aumente. La variable independiente seleccionada da una predicción estadísticamente relevante debido a que tienen valores muy por debajo del 0.05. 
-
+- Intercepto B0 =  5.39312 Valor del intercepto cuando la variable independiente toma el valor 0. Un estudiante usa su telefono al menos unas 5 horas.
+- social_media_hours B1 = 0.03138 Relacion positiva en las horas que un estudiante pasa en redes sociales con el uso del telefono. Significativa 
 
 **Modelo multivariable**
 
-Tenemos B0 = 7.177231, B1 = 0.196917, B2 = -0.005619  , B3 = 0.053440 y B4 = -0.032583. Los parametros B1, B2 y B4, que corresponden a Horas de estudio por dia, Horas de ejercicio y la nota final de examen, son relevantes para la prediccion de este modelo. 
-
+- Intercepto B0 = 7.177231 Valor del intercepto cuando las variables independientes son 0. Un estudiante usa 7 horas su telefono
+- study_hours_per_day  = 0.196917 Relacion positiva, estudiantes que usan su telefono para estudiar. Muy significativa 
+- streaming_hours B2 = -0.005619 Relacion negativa, el uso de aplicaciones de streaming no tiene una relacion inversa con el uso del telefono. No es significante
+- exercise_hours B3 = 0.053440 Relacion positiva, las horas de ejercicio tiene un incremento en el uso del telefono. Es significativa pero no tanto, no significa que influya mucho en nuestro modelo.
+- final_exam_score  B4 = -0.032583 Relacion negativa, estudiantes que han conseguido mejores calificaciones usan menos el telefono. Muy significante. 
 
 ### Prediccion de Sueño
 
@@ -99,59 +104,63 @@ modelo_multivariable_sueño <- lm(sleep_hours ~ study_hours_per_day + smartphone
                            data = student_digital_life)
 
 summary(modelo_multivariable_sueño)
-
 ```
 
 **Analísis**
 
 **Modelo univariable**
 
-Tenemos que B0 = 6.977401 y B1 =0.008913. El parametro B1 corresponde a Horas de juego, este parametro no es significativo para este modelo, no tiene relacion con las horas que una persona duerme.
-
+- Intercepto B0 = 6.977401 Valor del intercepto cuando las variables independientes son 0. De promedio un estudiante duerme entre 6 o 7 horas.
+- gaming_hours B1 =0.008913 Relacion positiva, tendriamos que mas horas de juego mas horas de sueño, podria ser el tipo de situacion en donde estudiantes se desvelan jugando y por consecuente tienen horas irregulares de sueño. No es significativa.
 
 **Modelo multivariable**
 
-Tenemos B0 = 6.9750889, B1 = -0.0038950, B2 = 0.0061939  , B3 = 0.0066186, B4 = 0.0001664 y B5 = -0.0009127. Ningundo de las variables tiene una influencia significativa con el sueño de una persona. 
-
+- Intercepto B0 = 6.9750889 Valor del intercepto cuando las variables independientes son 0. De promedio un estudiante duerme entre 6 o 7 horas.
+- study_hours_per_day B1 = -0.0038950 Relacion negativa, cuanto mas horas de estudio menos horas de sueño. No significativa 
+- smartphone_usage_hours B2 = 0.0061939  Relacion positiva,
+- social_media_hours B3 = 0.0066186 Relacion positiva, mas horas en redes sociales da mas horas de sueño, puede ser el mismo efecto que los estudiantes que se desvelan jugando. No significativa
+- caffeine_intake_cups B4 = 0.0001664 Relacion positiva, mas tazas de cafe tendrian relacion en las horas de sueño. No significativa
+- smartphone_usage_hours:social_media_hours B5 = -0.0009127 Relacion negativa, uso del telefono y consumir redes sociales si tiene efecto negativo en las horas de sueño reduciendolas. No es significativo. 
 
 # Diagnostico de Asunciones
 
-Vamos a verificar si uno de nuestros modelos cumple con las 6 asunciones. Aunque no hayamos recolectados estos datos asumiremos que la asuncion de la independencia de las observaciones se cumple.
+Vamos a comprobar las asunciones de dos de nuestros modelos. Estaremos usando los modelos multivariables de prediccion de nota final y horas de uso de smartphone. Aunque no hayamos recolectados estos datos asumiremos que la asuncion de la independencia de las observaciones se cumple.
+
+## Modelo de prediccion-Nota final
 
 **Linealidad**
 
 ```{r}
-plot(modelo_multivariable_nota, 1)
+check_model(modelo_multivariable_nota, check="linearity")
 ```
 
-Por un principio los residuos parecen estar dispersos sin seguir un patron pero a llegar a cierto punto estos cogen una forma diferente con forma escalonada. No se cumple la asuncion de linealidad. 
+Por un principio los residuos parecen estar dispersos sin seguir un patron pero a llegar a cierto punto estos cogen una forma diferente con forma escalonada o en forma de embudo, ademas que nuestra recta esta curvada. No se cumple la asuncion de linealidad. 
 
 **Normalidad**
 
 ```{r}
-qqnorm(modelo_multivariable_nota$residuals)
-qqline(modelo_multivariable_nota$residuals, col = "red")
+check_model(modelo_multivariable_nota, check="qq", detrend=FALSE) 
 ```
 
-En el Q-Q plot, observamos que la mayoria de los puntos siguen la linea recta, y solo algunos puntos del inicio y del final se desvian levemente. Aun asi la asuncion de la normalidad no se cumple.  
+En el Q-Q plot, observamos que parte de los puntos siguen la linea recta, y solo algunos puntos del inicio y del final se desvian levemente. Aun asi la asuncion de la normalidad no se cumple.  
 
 **Homocedasticidad**
 
 ```{r}
-plot(modelo_multivariable_nota, 1)
-
+check_model(modelo_multivariable_nota, check="linearity")
 # Test de Breusch-Pagan
 bptest(modelo_multivariable_nota)
 ```
+
 Observamos que en la grafica la linea roja no es recta, y al final de esta la disperción de los puntos cambia de ser constante a formar un embudo. Una segunda comprobacion usando el test Breush nos da un p-value muy bajo, para este caso un p-value menor a 0.05 indica que tiene heterocedasticidad. Concluimos por las evidencias del test y de la grafica que no se cumple la asunción de la homocedasticidad.
 
 **Ausencia de valores extremos**
 
 ```{r}
-plot(modelo_multivariable_nota, 5)
+check_model(modelo_multivariable_nota, check="outliers")
 ```
-Podemos observar en nuestra grafica que ningun punto sobrepasa la distancia de cook, por lo tanto se cumple la asunción. 
 
+Podemos observar en nuestra grafica que ningun punto sobrepasa la distancia de cook, por lo tanto se cumple la asunción. 
 
 **Ausencia de Multicolinealidad**
 
@@ -159,35 +168,66 @@ Podemos observar en nuestra grafica que ningun punto sobrepasa la distancia de c
 vif(modelo_multivariable_nota)
 ```
 
-Los valores VIF de las tres variables predictores son muy bajas, cumpliendo la asuncion de la multicolinealidad
+Los valores VIF de las cuatro variables predictores son muy bajas, cumpliendo la asuncion de la multicolinealidad
 
+## Modelo de prediccion-horas smartphone
 
-**Independencia de residuos**
+**Linealidad**
 
 ```{r}
-dwtest(modelo_multivariable_nota)
+check_model(modelo_multivariable_smart, check="linearity")
 ```
 
-El valor de DW se encuentra entre el 1.5 y el 2.5 por lo que la asunción de independencia de los residuos se cumple. 
+Tenemos una recta mas o menos alineada salvo por una pequeña parte al inicio, nuestros residuos se esparcen aleatoriamente . Cumple la asuncion de linealidad. 
+
+**Normalidad**
+
+```{r}
+check_model(modelo_multivariable_smart, check="qq", detrend=FALSE) 
+```
+
+En el Q-Q plot a comparacion del otro modelo nuestros residuos siguen en su mayoria toda la recta a excepcion de una pequeña region al inicio. Viendo que casi todos los residuos siguen la recta tendremos encuenta que cumple la asuncion de Normalidad.
+
+**Homocedasticidad**
+
+```{r}
+check_model(modelo_multivariable_smart, check="linearity")
+
+# Test de Breusch-Pagan
+bptest(modelo_multivariable_smart)
+```
+
+Nuestra grafica tiene linea roja recta a excepcion de una pequeña parte al inicio pero en su mayoria esta alineada al 0, el problema que tenemos es que nuestros residuos no siguen una separacion constante. Una segunda comprobacion usando el test Breush nos da un p-value bajo, pero no lo suficientemente bajo a futuro podriamos corregirlo. Concluimos por las evidencias del test y de la grafica que no se cumple la asunción de la homocedasticidad.
+
+**Ausencia de valores extremos**
+
+```{r}
+check_model(modelo_multivariable_smart, check="outliers")
+```
+
+Podemos observar en nuestra grafica que ningun punto sobrepasa la distancia de cook de 0.5. Cumple la asuncion de valores extremos.
+
+**Ausencia de Multicolinealidad**
+
+```{r}
+vif(modelo_multivariable_smart)
+```
+
+Los valores VIF de las cuatro variables predictores son muy bajas. Cumple la asuncion de la multicolinealidad
 
 # Matriz de correlaciones y factores FIV de un modelo multivariable
 
-Aunque ya hemos comprobado que no se cumple la multicolinealidad graficamos una matriz de correlacion para una segunda verificacion
+Los modelos que analizamos previamente cumplen la asuncion de la multicolinealidad. Usaremos el modelo de prediccion de horas de sueño.
 
 ```{r}
-variables_predictoras <- student_digital_life[c("study_hours_per_day", "sleep_hours", "motivation_level")]
-matriz_cor <- cor(variables_predictoras, use = "complete.obs")
+variables_predictoras <- student_digital_life[c("study_hours_per_day" , "smartphone_usage_hours" , "social_media_hours" , "caffeine_intake_cups")]
+matriz_cor <- cor(variables_predictoras, use = "complete.obs" )
 matriz_cor
-#Factores FIV
-vif(modelo_multivariable_nota)
+#Factores VIF
+vif(modelo_multivariable_sueño, type = 'predictor')
 ```
-Observamos que los valores FIV no extremadamente cercanos al 1 y que en la matriz de correlación no hay variables con una correlación mayo a 0.7. Esto nos indica que no existe relación entre las variables.
-
-**¿Hay multicolinealidad? ¿Puedes corregirla, obviando la(s) variable(s) con alto FIV? ¿Cómo ha cambiado el modelo?**
-
-Tal como hemos estudiado antes, observamos que hay una ausencia de multicolinealidad. 
-
+Observamos que los valores VIF son bajos, casi 1, y que en la matriz de correlación no hay variables con una correlación mayo a 0.7. Por lo tanto este modelo tampoco sufre de multicolinealidad. Si en un caso hubieramos tenido correlacion en alguna de nuestras variables lo que hubieramos hecho seria: eliminar esa variable que afecta y volver a comprobar todas las asunciones para comprobar que no hayamos creado otras asunciones. 
 
 # Conclusiones
 
-En esta sesion hemos definido varios modelos para distintas variables objetivos. Modelos que predicen la nota final de un examen, las horas de sueño y el tiempo de uso de smartphone. Para nuestro analisis escogimos el modelo multivariables sobre la prediccion de la nota final, analizamos si el modelo planteado era robusto y descubrimos que de las 6 asunciones cumple la mitad. Las asunciones faltantes: La normalidad, la linealidad y la homocedasticidad trataremos de corregirlas en la sesion siguiente.
+En esta sesion hemos definido varios modelos para distintas variables objetivos. Modelos que predicen la nota final de un examen, las horas de sueño y el tiempo de uso de smartphone. Para el analisis de las asunciones escogimos los modelos multivariables sobre la prediccion de la nota final y horas de uso de smartphone, y descubrimos que de las 6 asunciones algunos modelos no cumplen la linealidad ni la homocedasticidad. Las asunciones faltantes las trataremos de corregirlas en la sesion siguiente.

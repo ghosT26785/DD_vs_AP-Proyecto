@@ -16,8 +16,9 @@ library(repmod)
 library(clickR)    
 library(corrplot)   
 library(readr)
+library(here)
 
-student_digital_life <- read_csv("C:\\Users\\Jairo\\Documents\\universidad\\2cuatri\\Modelo de regresión\\trabajo\\DD_vs_AP-Proyecto\\dataset\\student_digital_life.csv")
+student_digital_life <- read_csv(here("dataset", "student_digital_life.csv"))
 
 
 student_digital_life$gender               <- as.factor(student_digital_life$gender)

@@ -14,7 +14,7 @@ student_digital_life <- read_csv(here("dataset", "student_digital_life.csv"))
 
 
 # ¿Porque elegimos este dataset?
-Es un tema actual y del cual se habla mucho por redes sociales. Nosotros como estudiantes quisimos probar y experimentar con este dataset para ver si los resultados que esperamos conseguir o alguna hipotesis que planteemos se cumplia y si podriamos reclicarla a beneficio.
+Es un tema actual y del cual se habla mucho por redes sociales. Nosotros como estudiantes quisimos probar y experimentar con este dataset para ver si los resultados que esperamos conseguir o alguna hipotesis que planteemos se cumplia y si podriamos reclicarla a beneficio. Dentro de este dataset tenemos que recopila los habitos de varios estudiantes como: horas de sueño, horas de estudio, nivel de confianza, etc. En si el dataset gira entorno al objetivo de ver las calificaciones finales de los estudiantes dados sus registros, pero teniendo tantas variables interesantes podemos explorar otros terrenos que aprimera vista no se contemplen en el dataset.
 
 # Estructura del dataset
 ```{r}
@@ -65,7 +65,6 @@ student_digital_life$nivel_gaming <- as.factor(student_digital_life$nivel_gaming
 #Aseguramos que la variable genero este registrada como un factor
 student_digital_life$gender <- as.factor(student_digital_life$gender)
 
-
 modelo_anova3 <- aov(sleep_hours ~ gender * nivel_smartphone * nivel_gaming, data = student_digital_life)
 summary(modelo_anova3)
 ```
@@ -76,7 +75,7 @@ H0: Ninguno de los factores genero, nivel de uso del movil y nivel de uso de vid
 
 Ha: El sueño se ve significativamente afectado por alguno los factores genero, nivel de uso del movil y nivel de uso de videojuegos, o algunas de sus relaciones.
 
-Podemos observar en el resumen del ANOVA que todos los factores menos la relación nivel de movil con nivel de videojuegos, tienen valores mayores a 0.05. Por lo que para la mayoria de factores no se podria rechazar la hipotesis nulas. Exceptuando a la relación nivel de movil con nivel de videojuegos la cual tiene un valor menor a 0.05, ocasionando que rechacemos la hipotesis nula, y concluyendo que el nivel del uso del movil cuando se esta jugando videojuegos produce un cambio significante en las horas de sueño. 
+Podemos observar en el resumen del ANOVA que todos los factores menos la relación nivel de movil con nivel de videojuegos, tienen valores mayores a 0.05. Por lo que para la mayoria de factores no se podria rechazar la hipotesis nulas. Exceptuando a la relación nivel de movil con nivel de videojuegos la cual tiene un valor menor a 0.05, ocasionando que rechacemos la hipotesis nula, y concluyendo que el nivel del uso del movil cuando se esta jugando videojuegos produce un cambio significante en las horas de sueño.
 
 
 
