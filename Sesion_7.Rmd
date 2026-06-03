@@ -12,6 +12,7 @@ library(mgcv)
 library(lme4)     
 library(ggplot2)   
 library(ggeffects)  
+library(pROC)      
 library(repmod)    
 library(clickR)    
 library(corrplot)   
@@ -26,41 +27,163 @@ student_digital_life$mental_health_status <- as.factor(student_digital_life$ment
 student_digital_life$parent_education_level <- as.factor(student_digital_life$parent_education_level)
 student_digital_life$internet_quality     <- as.factor(student_digital_life$internet_quality)
 ```
+
 # Elastic Net
 
-## Si elijo una elastic net para penalizar mi modelo ¿que alpha y s elijo?
+- **Si elijo una elastic net para penalizar mi modelo ¿que alpha y s elijo?**
 
 ```{r}
 dim(student_digital_life)
 ```
-El uso de la penalización con Elastic Net es recomendado cuando tenemos un dataset con un mayor numeros de variables que de muentras. En nuestro caso nosotros tenemos una base de datos con 15000 muestras y 18 variables, a continuación observaremos que sucede si aplicamos este metodo de penalización.
 
+El uso de la penalización con Elastic Net es recomendado cuando tenemos un dataset con un mayor numeros de variables que de muentras. En nuestro caso nosotros tenemos una base de datos con 15000 muestras y 18 variables no es ancho, a continuación observaremos que sucede si aplicamos este metodo de penalización.
 
-Continuaremos usando de base el modelo mejorado obtenido en la sesión 6. 
+## Modelo-prediccion nota
+
+Para el modelo de regresión logistica que predice si un estudiante aprueba o no, aplicaremos Elastic Net Lasso para penalizar y seleccionar variables. Adicionalmente, dijimos la sesion pasada que nuestro modelo de regresion logistica tenia overfitting en esta sesion la corregiremos utilizando pesos para balancear las clases
+
 ```{r}
-modelo_multivariable_smart_mejorado <- lm(smartphone_usage_hours ~ study_hours_per_day + social_media_hours +
-              gaming_hours + sleep_hours + exercise_hours +
-              class_attendance_percent + assignment_completion_percent +
-              mental_health_status + parent_education_level +
-              motivation_level + final_exam_score,
-              data = student_digital_life)
+# Creamos la variable aprobado 
+student_digital_life$aprobado <- ifelse(student_digital_life$final_exam_score >= 50, 1, 0)
+
+# Modelo logístico 
+modelo_logistico_nota <- glm(aprobado ~ study_hours_per_day + gaming_hours + 
+                              assignment_completion_percent + sleep_hours + 
+                              motivation_level + class_attendance_percent, 
+                            family = binomial(), data = student_digital_life)
+report(modelo_logistico_nota)
+```
+
+**Manejo del desbalanceo de clases**
+
+Para corregir el desbalance, asignamos pesos inversamente proporcionales a la frecuencia de cada clase. Así, la clase minoritaria (suspendidos) tendrá mayor peso en la estimación.
+
+```{r}
+# Pesos para balancear clases
+n_obs <- nrow(student_digital_life)
+n_clase0 <- sum(student_digital_life$aprobado == 0)
+n_clase1 <- sum(student_digital_life$aprobado == 1)
+
+pesos <- ifelse(student_digital_life$aprobado == 0, 
+                n_obs / (2 * n_clase0), 
+                n_obs / (2 * n_clase1))
+
+summary(pesos)
+```
+
+**Elección de alpha**
+
+Usamos validación cruzada con pesos para elegir λ
+
+```{r}
+# Matriz X 
+X_log <- model.matrix(aprobado ~ study_hours_per_day + social_media_hours + 
+                       gaming_hours + sleep_hours + exercise_hours + 
+                       class_attendance_percent + assignment_completion_percent + 
+                       streaming_hours + caffeine_intake_cups + mental_health_status + 
+                       parent_education_level + internet_quality + gender + 
+                       motivation_level, 
+                     data = student_digital_life)[, -1]
+Y_log <- student_digital_life$aprobado
+
+set.seed(123)
+cv_lasso_log <- cv.glmnet(X_log, Y_log, alpha = 1, family = "binomial", 
+                          weights = pesos, nfolds = 10)
+plot(cv_lasso_log)
+```
+
+Vamos a seleccionar el λ que hace que nuestro modelo sea mas simple y que tenga menor error, en este caso el λ que se encuentra a la izquierda
+
+
+```{r}
+set.seed(42)
+idx <- sample(1:nrow(student_digital_life), 0.8 * nrow(student_digital_life))
+
+df_train <- student_digital_life[idx, ]
+df_test  <- student_digital_life[-idx, ]
+
+# Matriz X para train/test
+X_train_log <- X_log[idx, ]
+X_test_log  <- X_log[-idx, ]
+Y_train_log <- student_digital_life$aprobado[idx]
+Y_test_log  <- student_digital_life$aprobado[-idx]
+
+# Pesos para train
+pesos_train <- pesos[idx]
+
+# Modelo logístico original (sin pesos)
+modelo_log_train <- glm(aprobado ~ study_hours_per_day + gaming_hours + 
+                         assignment_completion_percent + sleep_hours + 
+                         motivation_level + class_attendance_percent,
+                       family = binomial(), data = df_train)
+
+# Lasso con pesos para balancear clases
+cv_lasso_log <- cv.glmnet(X_train_log, Y_train_log, alpha = 1, 
+                          family = "binomial", weights = pesos_train, nfolds = 10)
+```
+
+
+**Comparacion AUC, Senbilidad y Especificacion de los modelos **
+
+```{r}
+# Predicciones del modelo logístico original
+prob_log <- predict(modelo_log_train, newdata = df_test, type = "response")
+pred_log <- ifelse(prob_log >= 0.5, 1, 0)
+
+# Predicciones del Lasso con pesos
+prob_lasso <- predict(cv_lasso_log, newx = X_test_log, s = "lambda.1se", type = "response")
+pred_lasso <- ifelse(prob_lasso >= 0.5, 1, 0)
+
+# AUC
+auc_log <- roc(response = Y_test_log, predictor = prob_log, direction = "<")
+auc_lasso <- roc(response = Y_test_log, predictor = as.vector(prob_lasso), direction = "<")
+
+cat("AUC - Logístico Original:", round(auc(auc_log), 3), 
+    "\nAUC - Lasso con pesos:", round(auc(auc_lasso), 3), "\n\n")
+
+# Balanced Accuracy = (sensibilidad + especificidad) / 2
+sens_log <- sum(pred_log == 1 & Y_test_log == 1) / sum(Y_test_log == 1)
+spec_log <- sum(pred_log == 0 & Y_test_log == 0) / sum(Y_test_log == 0)
+bal_acc_log <- (sens_log + spec_log) / 2
+
+sens_lasso <- sum(pred_lasso == 1 & Y_test_log == 1) / sum(Y_test_log == 1)
+spec_lasso <- sum(pred_lasso == 0 & Y_test_log == 0) / sum(Y_test_log == 0)
+bal_acc_lasso <- (sens_lasso + spec_lasso) / 2
+
+cat("Balanced Accuracy - Logístico Original:", round(bal_acc_log, 3), 
+    "\nBalanced Accuracy - Lasso con pesos:", round(bal_acc_lasso, 3), "\n")
+
+# Matriz de confusión del Lasso
+cat("\n--- Matriz de Confusión Lasso ---\n")
+print(table(Predicho = pred_lasso, Real = Y_test_log))
+```
+
+El uso del Elastic Net y corregir el desbalanceo de las clases nos a dado mejores resultado. Hemos podido simplificar el modelo y hemos mejorado el discriminamiento del mismo reglejado en el aumento de la sensibilidad y la especificacion.
+
+## Modelo-prediccion smartphone
+
+Seguiremos usando el mejor modelo que tenemos hasta ahora para la prediccion de horas de uso smartphone aun que tengamos metricas bajas.
+
+```{r}
+modelo_multivariable_smart_mejorado <- gls(smartphone_usage_hours ~ study_hours_per_day + assignment_completion_percent + exercise_hours + final_exam_score , data = student_digital_life, weights = varExp(form = ~ final_exam_score))
 
 summary(modelo_multivariable_smart_mejorado )
 ```
 
-**Elección de alpha (S)**
+**Elección de alpha**
 
 Utilizamos la matriz de correlación para poder elegir el valor de alpha.
 ```{r}
 num_vars <- student_digital_life[, sapply(student_digital_life, is.numeric)]
 cor_matrix <- cor(num_vars)
-corrplot(cor_matrix, method = "color", type = "upper",
+corrplot(cor_matrix, method = "color", type = "lower",
          tl.cex = 0.7, addCoef.col = "black", number.cex = 0.5)
 ```
+
 Como la mayoria de correlaciones son cercanas a cero, elegiremos un alpha de 1, es decir un modelo de Lasso(L1)
 
-
 Preparamos las matrices para usar glmnet, y ejecutamos una validación cruzada para elergir S.
+
 ```{r}
 X <- model.matrix(modelo_multivariable_smart_mejorado, data = student_digital_life)[, -1] 
 Y <- student_digital_life$smartphone_usage_hours
@@ -71,11 +194,12 @@ plot(cv_enet)
 
 
 ```
+
 La linea de puntos de la grafica nos marca la lambda con menor error posible que mantenga un modelo simple. En este caso nuestra lambda será 3. 
 
 
-
 Separamos los datos para la evaluación de modelo lineal y creamos las matrices que usará glmnet para realizar el Lasso.
+
 ```{r}
 set.seed(42)
 idx <- sample(1:nrow(student_digital_life), 0.8 * nrow(student_digital_life))
@@ -98,8 +222,8 @@ Y_train <- student_digital_life$smartphone_usage_hours[idx]
 Y_test  <- student_digital_life$smartphone_usage_hours[-idx]
 ```
 
-
 Entramos ámbos modelos.
+
 ```{r}
 
 modelo_lm_limpio <- lm(smartphone_usage_hours ~ study_hours_per_day + social_media_hours + 
@@ -114,6 +238,7 @@ cv_lasso <- cv.glmnet(X_train, Y_train, alpha = 1, nfolds = 10)
 ```
 
 Procedemos a evaluarlos
+
 ```{r}
 #Predicciones
 pred_lm <- predict(modelo_lm_limpio, newdata = df_test)
@@ -126,16 +251,22 @@ rmse_lasso <- sqrt(mean((Y_test - pred_lasso)^2))
 cat("RMSE OLS Limpio:", round(rmse_lm, 3), "\nRMSE Lasso:", round(rmse_lasso, 3))
 
 ```
+
 Como el modelo lineal y el modelo Lasso tienen un RMSE parecido, concluimos que el modelo penalizado es un poco mejor que el modelo lineal con la ventaja de que el modelo L1 es más simple, ya que tiene menos variables irrelevantes.
+
+
 
 # GAM
 
-El primer paso para crear un modelo adictivo generalizado es visualizar que variables son continuas (las cuales suavizaremos con s() ) y las categorias (las cuales mantendremos como terminos lineales)
+El primer paso para crear un modelo adictivo generalizado es visualizar que variables son continuas (las cuales suavizaremos 
+con s() ) y las categorias (las cuales mantendremos como terminos lineales)
 ```{r}
 # Verificar la estructura del dataset
 str(student_digital_life)
 ```
+
 Con esta información creamos el GAM
+
 ```{r}
 modelo_gam <- gam(
   smartphone_usage_hours ~ 

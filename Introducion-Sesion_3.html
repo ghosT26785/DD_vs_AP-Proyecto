@@ -363,7 +363,12 @@ display: none;
 Nosotros como estudiantes quisimos probar y experimentar con este
 dataset para ver si los resultados que esperamos conseguir o alguna
 hipotesis que planteemos se cumplia y si podriamos reclicarla a
-beneficio.</p>
+beneficio. Dentro de este dataset tenemos que recopila los habitos de
+varios estudiantes como: horas de sueño, horas de estudio, nivel de
+confianza, etc. En si el dataset gira entorno al objetivo de ver las
+calificaciones finales de los estudiantes dados sus registros, pero
+teniendo tantas variables interesantes podemos explorar otros terrenos
+que aprimera vista no se contemplen en el dataset.</p>
 </div>
 <div id="estructura-del-dataset" class="section level1">
 <h1>Estructura del dataset</h1>
@@ -412,7 +417,7 @@ str(student_digital_life)</code></pre>
 ##   ..   motivation_level = col_double(),
 ##   ..   final_exam_score = col_double()
 ##   .. )
-##  - attr(*, &quot;problems&quot;)=&lt;pointer: 0x55bb09d494c0&gt;</code></pre>
+##  - attr(*, &quot;problems&quot;)=&lt;pointer: 0x55fbf406b1b0&gt;</code></pre>
 <p>El dataset cuenta con 18 variables para 15000 registros en total</p>
 <p><strong>Variables del dataset</strong></p>
 <ul>
@@ -475,7 +480,6 @@ student_digital_life$nivel_gaming &lt;- as.factor(student_digital_life$nivel_gam
 
 #Aseguramos que la variable genero este registrada como un factor
 student_digital_life$gender &lt;- as.factor(student_digital_life$gender)
-
 
 modelo_anova3 &lt;- aov(sleep_hours ~ gender * nivel_smartphone * nivel_gaming, data = student_digital_life)
 summary(modelo_anova3)</code></pre>

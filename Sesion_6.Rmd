@@ -12,6 +12,15 @@ library(dplyr)
 library(MASS)
 library(caret)
 library(here)
+library(repmod) # Tablas de resultados de modelos
+library(performance) # Gráficos de diagnóstico
+library(lmtest)
+library(tidyverse)
+library(corrplot)
+library(dplyr)
+library(nlme)
+library(betareg)
+library(pROC)
 
 student_digital_life <- read_csv(here("dataset", "student_digital_life.csv"))
 
@@ -44,143 +53,316 @@ Nuestro modelo actual tenia corregidas sus asunciones, no a la perfeccion pero c
 
 # Nuevos modelos
 
+- GLM-Prediccion nota
 
+Hemos decidido que para aplacar el problema usaremos una regresion logistica. Crearemos una nueva variable que se encargara de recolectar si un estudiante ha aprobado o no. Teniendo en cuenta un 50 como aprobado, notas mayores a 50 estaran aprovados caso contrario estaran suspendidas. Para este modelo seguiremos usando las mismas varaibles predictoras que teniamos antes mas nuevas adiciones.
+
+```{r}
+# Creamos la varaible aprobado 
+student_digital_life$aprobado <- ifelse(student_digital_life$final_exam_score >= 50, 1, 0)
+
+student_digital_life$aprobado <- as.factor(student_digital_life$aprobado)
+levels(student_digital_life$aprobado) <- c("Suspendido", "Aprobado") # 0 = Suspendido, 1 = Aprobado
+
+
+# Construir el modelo
+modelo_logistico_nota <- glm(aprobado ~ study_hours_per_day + gaming_hours + assignment_completion_percent + sleep_hours + motivation_level + class_attendance_percent, family = binomial(), data = student_digital_life)
+
+report(modelo_logistico_nota)
+```
+
+**Explicacion modelo**
+
+- Intercepto B0: OR = 0 Valor del intercepto cuando las variables independientes tomen el valor 0.
+- study_hours_per_day B1: OR = 2.292. A mas horas de estudio las probabilidades de tener una buena nota incrementa un 2.982. Muy significativa
+- gaming_hours B2: OR = 0.814. Disminuye la probabilidades de tener mejor nota. Muy significativa
+- assignment_completion_percent B3: OR =  1.041. Completar una asigantura incrementa en poca medida las probabilidades de tener mejor nota. Muy significativa
+- sleep_hours B4: OR= 1.253. Un mejor sueño influye bastante en que tan mejores resultados podemos tener. Muy significativa
+- motivation_level B5: OR =  1.24 . Los niveles de confianza en una persona tienen un incremento del 24% en las probabilidades de tener buena nota. Muy significativa
+- class_attendance_percent B6: OR = 1.047 . Mismo caso que completar una asignatura influye pero el incremente es poco. Muy significativa
+
+**Metricas modelo**
+
+```{r}
+# Metricas, solo nos fijamos en el AIC
+model_performance(modelo_logistico_nota)
+
+
+# AUC
+probabilidades <- predict(modelo_logistico_nota, type = "response")
+
+clases_predichas <- ifelse(probabilidades >= 0.5, 1, 0)
+
+
+# Primero, necesitamos las probabilidades predichas por el modelo (entre 0 y 1)
+probabilidades <- predict(modelo_logistico_nota, type = "response")
+
+# Calcular la curva ROC y extraer el AUC
+curva_roc <- roc(response = student_digital_life$aprobado, predictor = probabilidades, direction = "<")
+auc(curva_roc)
+```
+
+
+Aparentemente tenemos un modelo perfecto, pero nos tenemos que fijar en una cosa. Al crear una nueva variable que clasifica si un estudiante a suspendido o ha aprobado no tenemos clases iguales.
+
+```{r}
+ggplot(student_digital_life, aes(x=aprobado)) + geom_bar()
+```
+Tenemos un desequilibrio de clases, lo cual un resultado tan perfecto como un AUC de 0.92 indicaria que nuestro modelo tiene un sobreajuste. Este es el menor de nuestros problemas por que mas adelante podemos soloucionar esto, pero vayamos a ver si nuestro modelo cumple con las asunciones.
 
 - LM-Prediccion smartphone
 
-Anteriormente la variable de horas de smartphone 
-
+Anteriormente la variable de horas de smartphone. 
 
 ```{r}
-modelo_multivariable_smart_corregido <- lm(smartphone_usage_hours ~ social_media_hours + final_exam_score + study_hours_per_day + sleep_hours + class_attendance_percent + motivation_level , data = student_digital_life)
+modelo_multivariable_smart_corregido <- gls(smartphone_usage_hours ~ study_hours_per_day + assignment_completion_percent + exercise_hours + final_exam_score , data = student_digital_life, weights = varExp(form = ~ final_exam_score))
 
 model_performance(modelo_multivariable_smart_corregido)
 
 summary(modelo_multivariable_smart_corregido)
 ```
 
+Hemos intentado modificar nuestro modelo varias veces, usando distintas combinaciones de varaibles para ver si podiamos mejorar el rendimiento del mismo. Estos repetidos cambios no mejoraron el modelo si no que lo empeoraban. Usaremos una matriz de correlacion para ver si encontramos variables con relacion a las horas de smartphone
+
+```{r}
+# Matrizcorrelacion solo para variables numericas
+datos_numericos <- student_digital_life[, sapply(student_digital_life, is.numeric)]
+matriz_cor <- cor(datos_numericos)
+
+corrplot(matriz_cor, 
+         method = "square",      # circle, square, ellipse, number, color
+         type = "lower",         # full, upper, lower
+         tl.col = "black",       # color de labels
+         tl.srt = 45,            # rotación de labels
+         addCoef.col = "white",  # agregar coeficientes
+         number.cex = 0.7,       # tamaño de números
+         tl.cex = 0.9,)           # tamaño de labels
+```
+
+Vemos el problema no solo esta en la varaible que buscamos si no que todas las varaibles no tienen casi relacion entre si, unicamente tiene relacion con la variable objetivo del problema final_exam. Descartaremos la posibilidad de realizar cualquier otro modelo que no tenga como objetivo la nota final. De todas formas mantendremos este modelo para hacer alguna que otra prediccion y ver como se comporta.
 
 
+# Asunciones de modelo GLM
 
+**Linealidad**
+```{r}
+plot(modelo_logistico_nota, which=1)
+```
 
+El grafico nos muestra que la recta esta lo suficientemente centrada en 0, y vemos como nuestros residuos de dispersan. Cumplimos la asuncion de linealidad.
 
+**Sobredispersion**
+```{r}
+(sobredispersion <- check_overdispersion(modelo_logistico_nota))
+```
 
+Verificamos con la libreria performance si nuestro modelo tiene sobre dispersion. Aparentemente nuestro modelo sufre de sobre dispersion, pero los errores son tan minimos que vamos a tomar como valida la sobredispersion.
 
+**Outliers influyentes**
+```{r}
+plot(modelo_logistico_nota, which=4, las=1)
+```
 
+No tenemos outlier influyentes
 
+**Multicolinealidad**
+```{r}
+vif(modelo_logistico_nota)
+```
 
+Seguimos sin tener multicolinealidad
 
-
+Nuestro modelo de regresion logistica cumple todas las asunciones, pero su unico defecto es que tenemos overfitting del modelo por el desbalance de las clases. Este problema lo solucionaremos mas adelante
 
 
 #Error de la muestra con la población: Holdout, Validación cruzada, Bootstrap
 
-Para este apartado mejoraremos el modelo lineal anterior, tomando como referencia de mejoría el R-cuadrado ajustado. Para así poder comparar el modelo original con el mejorado.
-
-Modelo original: 
-
-```{r}
-modelo_multivariable_smart <- lm( smartphone_usage_hours ~ study_hours_per_day + streaming_hours + exercise_hours + final_exam_score , data = student_digital_life)
-
-summary(modelo_multivariable_smart)
-```
-Modelo mejorado:
-
-- Añado mas variables continuas y categoricas
-```{r}
-student_digital_life <- student_digital_life %>%
-  mutate(
-    gender = as.factor(gender),
-    mental_health_status = as.factor(mental_health_status),
-    parent_education_level = as.factor(parent_education_level),
-    internet_quality = as.factor(internet_quality)
-  )
-
-modelo3 <- lm(smartphone_usage_hours ~ . - student_id,
-              data = student_digital_life)
-
-summary(modelo3)
-
-```
-
-- Elimino variables que no aportan información para la predicción 
-```{r}
-modelo_multivariable_smart_mejorado <- lm(smartphone_usage_hours ~ study_hours_per_day + social_media_hours +
-              gaming_hours + sleep_hours + exercise_hours +
-              class_attendance_percent + assignment_completion_percent +
-              mental_health_status + parent_education_level +
-              motivation_level + final_exam_score,
-              data = student_digital_life)
-
-summary(modelo_multivariable_smart_mejorado )
-```
-El modelo mejorado presenta un aumento considerable del R-cuadrado ajustado comparado con el modelo original.  A continuación aplicaremos los diversos metodos planteados a nuestros dos modelos para evaluarlos y compararlos. 
+## Modelos prediccion smartphone
 
 **Método Holdout**
 
 ```{r}
+#División Holdout (80% train, 20% test)
+set.seed(123)
 indice <- createDataPartition(student_digital_life$smartphone_usage_hours, p = 0.8, list = FALSE)
 datos_train <- student_digital_life[indice, ]
 datos_test  <- student_digital_life[-indice, ]
 
+#Entrenamiento de los modelos con los datos de train
 
-modelo_original_train <- lm(smartphone_usage_hours ~ study_hours_per_day + streaming_hours + exercise_hours + final_exam_score , data = datos_train)
+# Modelo Original (LM estándar)
+mod_lm <- lm(smartphone_usage_hours ~ study_hours_per_day + streaming_hours + 
+             exercise_hours + final_exam_score, data = datos_train)
 
-modelo_mejorado_train <- lm(smartphone_usage_hours ~ study_hours_per_day + social_media_hours +
-              gaming_hours + sleep_hours + exercise_hours +
-              class_attendance_percent + assignment_completion_percent +
-              mental_health_status + parent_education_level +
-              motivation_level + final_exam_score, data = datos_train)
+# Modelo Mejorado: correccion de heterocedasticidad
+mod_gls <- gls(smartphone_usage_hours ~ study_hours_per_day + assignment_completion_percent + 
+               exercise_hours + final_exam_score, 
+               data = datos_train, 
+               weights = varExp(form = ~ final_exam_score))
 
+# Predecir usando parte de test
+pred_lm <- predict(mod_lm, newdata = datos_test)
+pred_gls <- predict(mod_gls, newdata = datos_test)
 
-predicciones_original <- predict(modelo_original_train, datos_test)
-predicciones_mejorado <- predict(modelo_mejorado_train, datos_test)
+# Calcular RMSE para ambos
+rmse_holdout_lm  <- RMSE(pred = pred_lm, obs = datos_test$smartphone_usage_hours)
+rmse_holdout_gls <- RMSE(pred = pred_gls, obs = datos_test$smartphone_usage_hours)
 
-
-error_holdout_original <- RMSE(predicciones_original, datos_test$smartphone_usage_hours)
-error_holdout_mejorado <- RMSE(predicciones_mejorado, datos_test$smartphone_usage_hours)
-
-print(paste("Error Holdout Modelo 1:", error_holdout_original))
-print(paste("Error Holdout Modelo 2:", error_holdout_mejorado))
+# Resultados
+cat("--- Resultados Holdout ---\n")
+cat("Modelo Original (LM)  - RMSE:", round(rmse_holdout_lm, 4), "\n")
+cat("Modelo Mejorado (GLS) - RMSE:", round(rmse_holdout_gls, 4), "\n")
 
 ```
 
+**Cross-Validation con k=20**
 
-**Cross-Validation con k=10**
+```{r}
+set.seed(123)
+folds <- createFolds(student_digital_life$smartphone_usage_hours, k = 20, list = TRUE, returnTrain = TRUE)
+control_cv <- trainControl(method = "cv", number = 20)
+
+# LM Entrenamiento
+modelo_lm_cv <- train(
+  smartphone_usage_hours ~ study_hours_per_day + streaming_hours + exercise_hours + final_exam_score, 
+  data = student_digital_life, 
+  method = "lm", 
+  trControl = control_cv
+)
+
+# Extraer RMSE promedio
+rmse_cv_lm <- modelo_lm_cv$results$RMSE
+
+
+
+# GLS Entrenamiento
+
+rmse_gls_vec <- numeric(10) # Vector para guardar el RMSE de cada fold
+
+for(i in 1:10) {
+  # Separar train y test para el fold actual
+  train_i <- student_digital_life[folds[[i]], ]
+  test_i  <- student_digital_life[-folds[[i]], ]
+  
+  # Entrenar GLS con varExp
+  mod_gls_i <- gls(smartphone_usage_hours ~ study_hours_per_day + assignment_completion_percent + 
+                   exercise_hours + final_exam_score, 
+                   data = train_i, 
+                   weights = varExp(form = ~ final_exam_score))
+  
+  # Predecir y calcular RMSE
+  pred_gls_i <- predict(mod_gls_i, newdata = test_i)
+  rmse_gls_vec[i] <- RMSE(pred = pred_gls_i, obs = test_i$smartphone_usage_hours)
+}
+
+# Calculo de media de los RMSE
+rmse_cv_gls <- mean(rmse_gls_vec)
+
+# RESULTADOS 
+cat("--- Resultados Validación Cruzada (20 Folds) ---\n")
+cat("Modelo Original (LM)  - RMSE:", round(rmse_cv_lm, 4), "\n")
+cat("Modelo Mejorado (GLS) - RMSE:", round(rmse_cv_gls, 4), "\n")
+```
+
+Una primera evaluacion usando Holdout, hemos divido nuestro data set en 80% para entrenamiento y 20% para test. Los primeros resultado mostrarian que el primer modelo LM tiene menor equivocacion, recordemos que es el modelo al que no habiamos corregido la heterocedasticidad. La siguiente evaluacion usando validacion cruzada con un fold k = 20 tenemos un cambio en que modelo tiene el mejor resultado, el modelo mejorado tiene una disminucion del error menor al primer modelo. Aun sabiendo que nuestro ultimo modelo tiene un R^2 ajustado muy pequeño vemos que tenemos buenos resultados en los errores que comete.
+
+## Modelos prediccion nota
+
+**Método Holdout**
+
+```{r}
+# Holdout 
+set.seed(123)
+indice <- createDataPartition(student_digital_life$final_exam_score, p = 0.8, list = FALSE)
+datos_train <- student_digital_life[indice, ]
+datos_test  <- student_digital_life[-indice, ]
+
+
+# Entrenar los modelos con los datos de entrenamiento 
+
+# Modelo 1: Regresión Lineal
+modelo_original_train <- lm(log(final_exam_score + 1) ~ log(study_hours_per_day + 1) + sleep_hours + log(motivation_level) + log(class_attendance_percent), 
+                            data = datos_train)
+
+# Modelo 2: Regresión Logística 
+modelo_mejorado_train <- glm(aprobado ~ study_hours_per_day + gaming_hours + assignment_completion_percent + sleep_hours + motivation_level + class_attendance_percent, 
+                             family = binomial(), 
+                             data = datos_train)
+
+# Predecir sobre los datos de prueba
+
+# Modelo regresion lineal predicción en escala logarítmica 
+pred_log_original <- predict(modelo_original_train, newdata = datos_test)
+pred_final_original <- exp(pred_log_original) - 1 # Revertir el logaritmo a las unidades que usamos
+
+# Modelo regresion logistica predicción de clases 
+prob_mejorado <- predict(modelo_mejorado_train, newdata = datos_test, type = "response")
+pred_clase_mejorado <- ifelse(prob_mejorado >= 0.5, 1, 0)
+
+
+# Modelo regresion lineal RMSE 
+error_holdout_original <- RMSE(pred = pred_final_original, obs = datos_test$final_exam_score)
+
+# Modelo regresion logistica accuracy 
+nivel_0 <- levels(datos_test$aprobado)[1] 
+nivel_1 <- levels(datos_test$aprobado)[2] 
+pred_clase_etiquetas <- ifelse(prob_mejorado >= 0.5, nivel_1, nivel_0)
+accuracy_holdout_mejorado <- mean(pred_clase_etiquetas == datos_test$aprobado)
+
+
+# Resultados
+cat("--- Resultados Holdout ---\n")
+cat("Modelo 1 (Lineal) - RMSE de notas:", round(error_holdout_original, 2), "\n")
+cat("Modelo 2 (Logístico) - Accuracy (% aciertos):", round(accuracy_holdout_mejorado * 100, 2), "%\n")
+```
+
+
+**Cross-Validation con k=20**
 ```{r}
 
-control_cv <- trainControl(method = "cv", number = 10)
+set.seed(123) 
+control_cv <- trainControl(method = "cv", number = 20)
 
-modelo_original_cv <- train(smartphone_usage_hours ~ study_hours_per_day +
-                              streaming_hours + exercise_hours + final_exam_score,
-                            data = student_digital_life,
-                            method = "lm",
-                            trControl = control_cv)
+# Transformar nuestro variable aprobado en un factor
+student_digital_life$aprobado <- as.factor(student_digital_life$aprobado)
 
-modelo_mejorado_cv <- train(smartphone_usage_hours ~ study_hours_per_day + social_media_hours +
-                              gaming_hours + sleep_hours + exercise_hours +
-                              class_attendance_percent + assignment_completion_percent +
-                              mental_health_status + parent_education_level +
-                              motivation_level + final_exam_score,
-                            data = student_digital_life,
-                            method = "lm",
-                            trControl = control_cv)
 
+# Entrenamiento de los modelos 
+
+# Modelo 1: Regresión Lineal (Transformada)
+# caret se encarga de hacer los 10 folds internamente
+modelo_original_cv <- train(
+  log(final_exam_score + 1) ~ log(study_hours_per_day + 1) + sleep_hours + log(motivation_level) + log(class_attendance_percent), 
+  data = student_digital_life, 
+  method = "lm",
+  trControl = control_cv
+)
+
+# Modelo Regresión Logística 
+modelo_mejorado_cv <- train(
+  aprobado ~ study_hours_per_day + gaming_hours + assignment_completion_percent + sleep_hours + motivation_level + class_attendance_percent, 
+  data = student_digital_life, 
+  method = "glm", 
+  family = binomial(),
+  trControl = control_cv
+)
+
+# MÉTRICAS 
+
+# Modelo antiguo: RMSE
 error_cv_original <- modelo_original_cv$results$RMSE
-error_cv_mejorado <- modelo_mejorado_cv$results$RMSE
 
-print(paste("Error Validación Cruzada Modelo 1:", error_cv_original))
-print(paste("Error Validación Cruzada Modelo 2:", error_cv_mejorado))
+# Modelo logistico: Accuracy(Aciertos que el modelo hace)
+accuracy_cv_mejorado <- modelo_mejorado_cv$results$Accuracy
 
+
+#RESULTADOS
+cat("--- Resultados Validación Cruzada (10 Folds) ---\n")
+cat("Modelo antiguo (Lineal) - RMSE promedio:", round(error_cv_original, 3), "\n")
+cat("Modelo mejorado (Logístico) - Accuracy promedio:", round(accuracy_cv_mejorado * 100, 2), "%\n")
 ```
 
-Al pasar los modelos lineales por los dos métodos de evaluación, observamos que sí siguen teniendo un error muy similar al de su ajuste inicial. En los resúmenes originales con el summary(), el modelo original tenía un error residual de 2.394 y el modelo mejorado de 2.381. Tras aplicar el método Holdout, los errores RMSE dieron 2.382 y 2.365 respectivamente. De misma manera, la Validación Cruzada (k=10) dío errores medios de 2.394 y 2.381. Esta altísima consistencia entre el error de entrenamiento y el error de prueba demuestra que los modelos son robustos, generalizan de manera excelente y no sufren de sobreajuste, ya que son capaces de predecir datos no vistos con la misma precisión que los datos con los que fueron creados.
-
-
-En cuanto al orden de cual modelo es mejor, siguen ordenados exactamente igual que antes. El modelo mejorado, que incorpora variables adicionales, ya era el mejor modelo en la fase de entrenamiento (RSE de 2.381 frente al 2.394 del modelo original). Por tanto, se confirma que el modelo mejorado es la mejor opción para predecir las horas de uso del smartphone.
-
-
-Finalmente decidiremos quedarnos con el modelo mejorado porque demuestra ser superior al original. Sin embargo, la diferencia predictoria entre ámbos modelos es mínima, debido a que tienen errores muy similares y poco significantes en el mundo real(el error (RMSE) bajó de 2.394 a 2.381). Además aunque el modelo cumpla con todas las asunciones, sea estable y no tenga sobreajuste, presenta un R-cuadrado ajustado muy bajo de 0.04599 que solo explica 4.6% de la predicción de la información, ya que un error de 2.4 horas hace que el modelo sea muy impreciso. 
+Dado que nuestro modelo mejorado es predice una variable categorica no podemos medir sus errores de la misma manera. Usando holdout y luego validacion cruzada vemos que hay una disminucion de los errores que el modelo lineal comete, por otro lado el modelo logistico se mantiene en el mismo porcentaje con una pequeña disminucion. No podriamos decir que modelo es mejor por el problema que ya habias mencionado.
 
 
 
