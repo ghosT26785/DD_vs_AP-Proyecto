@@ -240,11 +240,10 @@ rmse_cv_lm <- modelo_lm_cv$results$RMSE
 rmse_gls_vec <- numeric(10) # Vector para guardar el RMSE de cada fold
 
 for(i in 1:10) {
-  # Separar train y test para el fold actual
+
   train_i <- student_digital_life[folds[[i]], ]
   test_i  <- student_digital_life[-folds[[i]], ]
   
-  # Entrenar GLS con varExp
   mod_gls_i <- gls(smartphone_usage_hours ~ study_hours_per_day + assignment_completion_percent + 
                    exercise_hours + final_exam_score, 
                    data = train_i, 
@@ -289,13 +288,13 @@ modelo_mejorado_train <- glm(aprobado ~ study_hours_per_day + gaming_hours + ass
                              family = binomial(), 
                              data = datos_train)
 
-# Predecir sobre los datos de prueba
+# Predeccion
 
-# Modelo regresion lineal predicción en escala logarítmica 
+# Modelo regresion lineal 
 pred_log_original <- predict(modelo_original_train, newdata = datos_test)
 pred_final_original <- exp(pred_log_original) - 1 # Revertir el logaritmo a las unidades que usamos
 
-# Modelo regresion logistica predicción de clases 
+# Modelo regresion logistica
 prob_mejorado <- predict(modelo_mejorado_train, newdata = datos_test, type = "response")
 pred_clase_mejorado <- ifelse(prob_mejorado >= 0.5, 1, 0)
 
