@@ -356,7 +356,7 @@ accuracy_cv_mejorado <- modelo_mejorado_cv$results$Accuracy
 
 
 #RESULTADOS
-cat("--- Resultados Validación Cruzada (10 Folds) ---\n")
+cat("--- Resultados Validación Cruzada (20 Folds) ---\n")
 cat("Modelo antiguo (Lineal) - RMSE promedio:", round(error_cv_original, 3), "\n")
 cat("Modelo mejorado (Logístico) - Accuracy promedio:", round(accuracy_cv_mejorado * 100, 2), "%\n")
 ```

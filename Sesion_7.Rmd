@@ -11,6 +11,7 @@ library(glmnet)
 library(mgcv)    
 library(lme4)     
 library(ggplot2)   
+library(performance)
 library(ggeffects)  
 library(pROC)      
 library(repmod)    
@@ -26,7 +27,11 @@ student_digital_life$gender               <- as.factor(student_digital_life$gend
 student_digital_life$mental_health_status <- as.factor(student_digital_life$mental_health_status)
 student_digital_life$parent_education_level <- as.factor(student_digital_life$parent_education_level)
 student_digital_life$internet_quality     <- as.factor(student_digital_life$internet_quality)
+
+# Modelo antiguo de la sesion4
+modelo_multivariable_nota <- lm(final_exam_score ~ study_hours_per_day + sleep_hours + motivation_level + class_attendance_percent, data = student_digital_life)
 ```
+
 
 # Elastic Net
 
@@ -153,9 +158,48 @@ bal_acc_lasso <- (sens_lasso + spec_lasso) / 2
 cat("Balanced Accuracy - Logístico Original:", round(bal_acc_log, 3), 
     "\nBalanced Accuracy - Lasso con pesos:", round(bal_acc_lasso, 3), "\n")
 
-# Matriz de confusión del Lasso
-cat("\n--- Matriz de Confusión Lasso ---\n")
-print(table(Predicho = pred_lasso, Real = Y_test_log))
+# Matriz de confusion
+plot_confusion_matrix <- function(predicho, real, titulo) {
+  # Crear matriz de confusión
+  cm <- table(Predicho = predicho, Real = real)
+  
+  # Convertir a dataframe para ggplot
+  cm_df <- as.data.frame(cm)
+  
+  # Calcular porcentajes
+  total <- sum(cm_df$Freq)
+  cm_df$porcentaje <- round(cm_df$Freq / total * 100, 1)
+  
+  # Crear gráfico
+  ggplot(cm_df, aes(x = Real, y = Predicho, fill = Freq)) +
+    geom_tile(color = "white", size = 1) +
+    geom_text(aes(label = paste0(Freq, "\n(", porcentaje, "%)")), 
+              size = 6, color = "black", fontface = "bold") +
+    scale_fill_gradient(low = "#f7fbff", high = "#08519c") +
+    labs(title = titulo,
+         subtitle = paste("Total observaciones:", total),
+         x = "Clase Real",
+         y = "Clase Predicha",
+         fill = "Conteo") +
+    theme_minimal(base_size = 14) +
+    theme(
+      plot.title = element_text(hjust = 0.5, face = "bold", size = 16),
+      plot.subtitle = element_text(hjust = 0.5, size = 12),
+      legend.position = "right",
+      panel.grid = element_blank()
+    ) +
+    scale_x_discrete(labels = c("0" = "Suspendido\n(0)", "1" = "Aprobado\n(1)")) +
+    scale_y_discrete(labels = c("0" = "Suspendido\n(0)", "1" = "Aprobado\n(1)"))
+}
+
+# Gráfico Matriz de Confusión - Logístico Original
+plot_confusion_matrix(pred_log, Y_test_log, 
+                      "Matriz de Confusión - Modelo Logístico Original")
+
+# Gráfico Matriz de Confusión - Lasso
+plot_confusion_matrix(pred_lasso, Y_test_log, 
+                      "Matriz de Confusión - Modelo Lasso con Pesos")
+
 ```
 
 El uso del Elastic Net y corregir el desbalanceo de las clases nos a dado mejores resultado. Hemos podido simplificar el modelo y hemos mejorado el discriminamiento del mismo reglejado en el aumento de la sensibilidad y la especificacion.
@@ -260,6 +304,7 @@ Como el modelo lineal y el modelo Lasso tienen un RMSE parecido, concluimos que 
 
 El primer paso para crear un modelo adictivo generalizado es visualizar que variables son continuas (las cuales suavizaremos 
 con s() ) y las categorias (las cuales mantendremos como terminos lineales)
+
 ```{r}
 # Verificar la estructura del dataset
 str(student_digital_life)
@@ -269,7 +314,7 @@ Con esta información creamos el GAM
 
 ```{r}
 modelo_gam <- gam(
-  smartphone_usage_hours ~ 
+  final_exam_score ~ 
     s(study_hours_per_day) +
     s(social_media_hours) +
     s(gaming_hours) +
@@ -277,10 +322,8 @@ modelo_gam <- gam(
     s(exercise_hours) +
     s(class_attendance_percent) +
     s(assignment_completion_percent) +
-    mental_health_status +
-    parent_education_level +
     s(motivation_level) +
-    s(final_exam_score),
+    s(smartphone_usage_hours),
   data = student_digital_life,
   method = "REML"
 )
@@ -297,6 +340,76 @@ plot(modelo_gam, shade = TRUE, col = "blue", shade.col = "lightblue",
      seWithMean = TRUE, scale = 0)
 ```
 En estas graficas observamos de manera visual que las funciones de suavizado con un edf muy cercano a uno siguen practicamente una regresión lineal. 
+
+
+
+# Evaluacion de GAMs
+
+
+Validacion cruzada con GAM
+
+```{r}
+library(mgcv)
+library(caret) 
+
+formula_gam <- final_exam_score ~ 
+  s(study_hours_per_day) +
+  s(social_media_hours) +
+  s(gaming_hours) +
+  s(sleep_hours) +
+  s(exercise_hours) +
+  s(class_attendance_percent) +
+  s(assignment_completion_percent) +
+  s(motivation_level) +
+  s(smartphone_usage_hours)
+
+# Asegurarnos de que las variables categóricas sean factores (crucial para GAMs)
+student_digital_life$mental_health_status <- as.factor(student_digital_life$mental_health_status)
+student_digital_life$parent_education_level <- as.factor(student_digital_life$parent_education_level)
+
+# 2. Configurar la Validación Cruzada (10 Folds)
+set.seed(123)
+folds <- createFolds(student_digital_life$final_exam_score, k = 20, list = TRUE, returnTrain = TRUE)
+
+# 3. Bucle de Validación Cruzada
+rmse_folds <- numeric(20) # Vector para guardar el RMSE de cada fold
+
+for(i in 1:10) {
+  # Dividir en train y test
+  datos_train <- student_digital_life[folds[[i]], ]
+  datos_test  <- student_digital_life[-folds[[i]], ]
+  
+  # Entrenar el GAM (REML es excelente para esto)
+  modelo_gam_fold <- gam(
+    formula_gam, 
+    data = datos_train, 
+    method = "REML"
+  )
+  
+  # Predecir en el conjunto de prueba
+  predicciones <- predict(modelo_gam_fold, newdata = datos_test)
+  
+  # Calcular el RMSE de este fold
+  rmse_folds[i] <- sqrt(mean((datos_test$final_exam_score - predicciones)^2))
+}
+
+# 4. Resumen de Resultados
+cat("--- Resultados Validación Cruzada del GAM (20 Folds) ---\n")
+cat("RMSE Promedio:", round(mean(rmse_folds), 3), "\n")
+cat("Desviación Estándar del RMSE:", round(sd(rmse_folds), 3), "\n")
+cat("RMSE Mínimo (mejor fold):", round(min(rmse_folds), 3), "\n")
+cat("RMSE Máximo (peor fold):", round(max(rmse_folds), 3), "\n")
+
+```
+
+
+Comparacion con todos los modelos hechos anteriormente
+
+```{r}
+compare_performance(modelo_multivariable_nota,modelo_logistico_nota,modelo_gam)
+```
+
+
 
 
 # GLMMs

@@ -79,7 +79,7 @@ Todas nuestras variables son significativas para nuestro modelo. Aparentemente n
 Primero comprobamos cuales de nuestras variables predictoras necesitan correccion.
 
 ```{r}
-avPlots(modelo_multivariable_nota)
+crPlots(modelo_multivariable_nota)
 ```
 
 ```{r}
@@ -124,7 +124,7 @@ Todas nuestras variables son significativas para nuestro modelo. Aparentemente n
 Primero comprobamos cuales de nuestras variables predictoras necesitan correccion.
 
 ```{r}
-avPlots(modelo_multivariable_smart)
+crPlots(modelo_multivariable_smart)
 ```
 Aplicamos algoritmos a las variables que tienen un ascenso o descenso en su recta.
 
